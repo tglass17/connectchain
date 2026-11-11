@@ -21,7 +21,12 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 #req{position:fixed;top:90px;right:20px;background:#fff;padding:18px;border-radius:16px;box-shadow:0 6px 24px #0004;display:none;z-index:40;font-size:22px;width:320px}
 #bar{height:8px;background:#22c55e;border-radius:4px;margin-top:12px}@keyframes drain{from{width:100%}to{width:0}}
 #ov{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;color:#fff;font-size:180px}
-#menu{position:fixed;background:#fff;padding:14px;border-radius:12px;display:none;z-index:70;box-shadow:0 4px 20px #0005}
+#menu{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,92vw);max-height:90vh;overflow:auto;background:#fff;padding:18px;border-radius:16px;display:none;z-index:70;box-shadow:0 8px 40px #0007}
+.sw{display:inline-block;width:30px;height:30px;border-radius:8px;margin:3px;cursor:pointer;border:2px solid #0003;vertical-align:middle}
+.stage{container-type:inline-size;aspect-ratio:16/9;width:100%;max-width:1200px;margin:0 auto;background:#f0fdf4;border-radius:24px;overflow:hidden}
+.sin{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;padding:2cqw;text-align:center}
+.sh{font-size:3cqw}.sv{font-size:4cqw}.sc{display:flex;flex-wrap:nowrap;gap:1.2cqw;justify-content:center;align-items:center;font-size:4cqw;height:8cqw;max-width:96cqw;overflow:hidden}.sc .chip{padding:.8cqw 2cqw;border-radius:1.6cqw}
+.st{font-size:3cqw}.sy{font-size:2.8cqw;background:#fff;border-radius:2cqw;padding:1.4cqw 3cqw;min-width:50cqw}.sf{font-size:2.2cqw;height:7cqw;overflow:hidden}.sb{font-size:2.4cqw;padding:1cqw 3cqw;border-radius:1.6cqw}
 .nm{cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
 .c-blueg,.c-redorangeg,.c-greenhaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
 .c-blueg{background-image:linear-gradient(90deg,#2563eb,#06b6d4,#2563eb)}.c-redorangeg{background-image:linear-gradient(90deg,#dc2626,#fb923c,#dc2626)}
@@ -37,14 +42,14 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <span id="me"></span><span id="conn" style="margin-left:auto">● connecting…</span></header>
 <main><div><div class="panel" id="game">
 <div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
-<div id="spectate" style="display:none"><h2 style="margin-top:0">👁 Watching a match</h2><div id="svs" style="font-size:30px"></div><div id="schain" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:34px;min-height:70px;margin:16px 0"></div><div id="sturn" style="font-size:24px;margin:8px"></div><div id="styp" style="font-size:24px;background:#f0fdf4;border-radius:14px;padding:12px;margin:10px 0"></div><div id="sfeed" style="font-size:20px;min-height:30px"></div><button onclick="stopWatch()">Back to lobby</button></div>
+<div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
 <div id="arena" style="display:none"><div id="vs"></div><div id="chain"></div><div id="turn"></div>
 <input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
 <div><div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
-<div id="own" style="display:none"><p><b>Owner tag colors</b></p><input type="color" id="c1" value="#ff0080"> <input type="color" id="c2" value="#00d4ff"> <button onclick="send({t:'ownertag',c1:c1.value,c2:c2.value})">Save</button></div></div></div></main>
+<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
 <div id="ov"></div><div id="flash"></div><div id="menu"></div>
 <script>
@@ -69,7 +74,7 @@ function countdown(opp){$('spectate').style.display='none';$('welcome').style.di
 function watch(n){$('sfeed').innerHTML='';send({t:'watch',who:n})}
 function stopWatch(){send({t:'unwatch'});$('spectate').style.display='none';$('welcome').style.display=''}
 function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.repeat(m.lives[0])} &nbsp; vs &nbsp; ${nm(b)} ${'❤️'.repeat(m.lives[1])}`;
- $('schain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
+ $('schain').innerHTML=m.chain.slice(-4).map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
  $('sturn').textContent=m.live?(m.turn==0?a.name:b.name)+"'s turn":'Match is starting…';
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
@@ -91,15 +96,28 @@ function on(m){
   $('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
  if(m.t=='spec'){hideReq();$('welcome').style.display='none';$('arena').style.display='none';$('spectate').style.display='';specRender(m)}
  if(m.t=='spectype'){const e=$('styp'+m.who);if(e)e.textContent=m.text}
- if(m.t=='specmsg')$('sfeed').insertAdjacentHTML('afterbegin',`<div class="bad">${esc(m.text)}</div>`);
+ if(m.t=='specmsg'){const f=$('sfeed');f.insertAdjacentHTML('afterbegin',`<div class="bad">${esc(m.text)}</div>`);while(f.children.length>3)f.lastChild.remove()}
  if(m.t=='specover')$('sturn').textContent='🏁 '+m.winner+' won the match!';
  if(m.t=='opptype')$('opp').textContent=m.text;
  if(m.t=='over'){live=false;$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
  if(m.t=='banned')document.body.innerHTML='<h1 style="padding:40px">⛔ You have been temporarily banned for using bad words.</h1>'}
 function sub(){if(!live)return;if(!myTurn)return toast("Wait for your turn!",'warn');send({t:'submit',word:$('word').value});$('word').value='';send({t:'typing',text:''})}
 $('word').oninput=e=>send({t:'typing',text:e.target.value});$('word').onkeydown=e=>{if(e.key=='Enter')sub()};
-document.onclick=e=>{const m=$('menu'),n=e.target.dataset&&e.target.dataset.n;m.style.display='none';if(!n||!you||!you.owner||n==you.name)return;
- m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';m.style.display='block';const cur=lastList.find(x=>x.name==n)||{};
- m.innerHTML=`<b>${esc(n)}</b><br>Tag: <input id="tg" size="10" placeholder="custom tag" value="${esc(cur.tag||'')}"><br>Colors: <input type="color" id="t1" value="${cur.tc1||'#dddddd'}"> <input type="color" id="t2" value="${cur.tc2||'#aaaaaa'}"> <button onclick="send({t:'settag',to:'${esc(n)}',text:tg.value,c1:t1.value,c2:t2.value})">Set</button><br><br>XP: <input id="gx" type="number" value="100" style="width:100px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant</button>`;e.stopPropagation()};
-$('menu').onclick=e=>e.stopPropagation();
+let tagSel=['#dddddd','#aaaaaa'],tagTo='';
+const SW=['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#ffffff','#111827','#dddddd','#aaaaaa'];
+const swRow=i=>SW.map(c=>`<span class="sw" style="background:${c}" onclick="pickC(${i},'${c}')"></span>`).join('')+`<input type="color" value="${tagSel[i]}" oninput="pickC(${i},this.value)">`;
+function prev(){const p=$('pv'),t=$('tg');p.style.backgroundImage=`linear-gradient(90deg,${tagSel[0]},${tagSel[1]},${tagSel[0]})`;p.textContent=(t&&t.value)||(tagTo=='__me'?'OWNER':'TAG')}
+function pickC(i,c){tagSel[i]=c;prev()}
+function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{};
+ tagSel=me?[ot.c1,ot.c2]:[cur.tc1||'#dddddd',cur.tc2||'#aaaaaa'];
+ const m=$('menu');m.style.display='block';
+ m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">${me?'My owner tag':esc(n)}</h3>`+
+ (me?'':`Tag text: <input id="tg" maxlength="16" value="${esc(cur.tag||'')}" oninput="prev()"><br>`)+
+ `<p>Color 1:<br>${swRow(0)}</p><p>Color 2:<br>${swRow(1)}</p><p>Preview: <span id="pv" class="tag" style="font-size:18px"></span></p><button class="go" onclick="saveTag()">Save tag</button> `+
+ (me?'':`<button class="no" onclick="saveTag(true)">Remove tag</button><hr>XP: <input id="gx" type="number" value="100" style="width:110px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant XP</button>`);
+ prev()}
+function closeMenu(){$('menu').style.display='none'}
+function saveTag(rm){if(tagTo=='__me')send({t:'ownertag',c1:tagSel[0],c2:tagSel[1]});else send({t:'settag',to:tagTo,text:rm?'':$('tg').value,c1:tagSel[0],c2:tagSel[1]});toast(rm?'Tag removed':'Tag saved','ok');closeMenu()}
+document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target))closeMenu();return}
+ const n=e.target.dataset&&e.target.dataset.n;if(!n||!you||!you.owner||n==you.name)return;openMenu(n)};
 </script></body></html>
