@@ -37,6 +37,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <span id="me"></span><span id="conn" style="margin-left:auto">● connecting…</span></header>
 <main><div><div class="panel" id="game">
 <div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
+<div id="spectate" style="display:none"><h2 style="margin-top:0">👁 Watching a match</h2><div id="svs" style="font-size:30px"></div><div id="schain" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:34px;min-height:70px;margin:16px 0"></div><div id="sturn" style="font-size:24px;margin:8px"></div><div id="styp" style="font-size:24px;background:#f0fdf4;border-radius:14px;padding:12px;margin:10px 0"></div><div id="sfeed" style="font-size:20px;min-height:30px"></div><button onclick="stopWatch()">Back to lobby</button></div>
 <div id="arena" style="display:none"><div id="vs"></div><div id="chain"></div><div id="turn"></div>
 <input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
@@ -47,7 +48,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
 <div id="ov"></div><div id="flash"></div><div id="menu"></div>
 <script>
-const $=id=>document.getElementById(id);let ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
+const $=id=>document.getElementById(id);let lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'bad');clearTimeout(toast.t);toast.t=setTimeout(()=>f.className='',3000)}
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
@@ -56,22 +57,28 @@ function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
  ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
-function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:'#ddd'},${o?ot.c2:'#aaa'},${o?ot.c1:'#ddd'})">${esc(u.tag)}</span>`:'';
+function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
  return `<span class="nm ${o?'owner':'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.name)}</span>${t}`}
 const xpOf=u=>u.owner?'∞':u.xp;
 function chall(n){if(send({t:'challenge',to:n}))toast('Request sent to '+n+' — waiting up to 20 seconds…','ok')}
 function showReq(from){$('reqname').textContent=from;$('req').dataset.from=from;$('req').style.display='block';const b=$('bar');b.style.animation='none';void b.offsetWidth;b.style.animation='drain 20s linear forwards';clearTimeout(reqT);reqT=setTimeout(hideReq,20000)}
 function hideReq(){$('req').style.display='none';clearTimeout(reqT)}
 function reply(t){send({t,from:$('req').dataset.from});hideReq()}
-function countdown(opp){$('welcome').style.display='none';$('arena').style.display='';$('back').style.display='none';$('vs').innerHTML='You vs '+nm(opp);$('chain').innerHTML='';$('turn').textContent='Get ready!';$('word').value='';$('word').disabled=true;$('opp').textContent='';
+function countdown(opp){$('spectate').style.display='none';$('welcome').style.display='none';$('arena').style.display='';$('back').style.display='none';$('vs').innerHTML='You vs '+nm(opp);$('chain').innerHTML='';$('turn').textContent='Get ready!';$('word').value='';$('word').disabled=true;$('opp').textContent='';
  const ov=$('ov');ov.style.display='flex';let n=3;ov.textContent=n;const iv=setInterval(()=>{n--;ov.textContent=n>0?n:'GO!';if(n<0){clearInterval(iv);ov.style.display='none'}},1000)}
+function watch(n){$('sfeed').innerHTML='';send({t:'watch',who:n})}
+function stopWatch(){send({t:'unwatch'});$('spectate').style.display='none';$('welcome').style.display=''}
+function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.repeat(m.lives[0])} &nbsp; vs &nbsp; ${nm(b)} ${'❤️'.repeat(m.lives[1])}`;
+ $('schain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
+ $('sturn').textContent=m.live?(m.turn==0?a.name:b.name)+"'s turn":'Match is starting…';
+ $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
  if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='token')localStorage.cctk=m.tk;
- if(m.t=='lobby'){ot=m.ownerTag;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small></span>${you&&u.name!=you.name?(u.busy?'<small>in battle</small>':`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
+ if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small></span>${you&&u.name!=you.name?(u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
  if(m.t=='flash')toast(m.text,m.kind);
  if(m.t=='challenge')showReq(m.from);
  if(m.t=='chalgone'&&$('req').dataset.from==m.from)hideReq();
@@ -82,13 +89,17 @@ function on(m){
   $('chain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
   $('vs').innerHTML=`${nm(you)} ${'❤️'.repeat(m.lives[m.you])} &nbsp; vs &nbsp; ${nm(m.opp)} ${'❤️'.repeat(m.lives[1-m.you])}`;
   $('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
+ if(m.t=='spec'){hideReq();$('welcome').style.display='none';$('arena').style.display='none';$('spectate').style.display='';specRender(m)}
+ if(m.t=='spectype'){const e=$('styp'+m.who);if(e)e.textContent=m.text}
+ if(m.t=='specmsg')$('sfeed').insertAdjacentHTML('afterbegin',`<div class="bad">${esc(m.text)}</div>`);
+ if(m.t=='specover')$('sturn').textContent='🏁 '+m.winner+' won the match!';
  if(m.t=='opptype')$('opp').textContent=m.text;
  if(m.t=='over'){live=false;$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
  if(m.t=='banned')document.body.innerHTML='<h1 style="padding:40px">⛔ You have been temporarily banned for using bad words.</h1>'}
 function sub(){if(!live)return;if(!myTurn)return toast("Wait for your turn!",'warn');send({t:'submit',word:$('word').value});$('word').value='';send({t:'typing',text:''})}
 $('word').oninput=e=>send({t:'typing',text:e.target.value});$('word').onkeydown=e=>{if(e.key=='Enter')sub()};
 document.onclick=e=>{const m=$('menu'),n=e.target.dataset&&e.target.dataset.n;m.style.display='none';if(!n||!you||!you.owner||n==you.name)return;
- m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';m.style.display='block';
- m.innerHTML=`<b>${esc(n)}</b><br>Tag: <input id="tg" size="10" placeholder="custom tag"> <button onclick="send({t:'settag',to:'${esc(n)}',text:tg.value})">Set</button><br><br>XP: <input id="gx" type="number" value="100" style="width:100px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant</button>`;e.stopPropagation()};
+ m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';m.style.display='block';const cur=lastList.find(x=>x.name==n)||{};
+ m.innerHTML=`<b>${esc(n)}</b><br>Tag: <input id="tg" size="10" placeholder="custom tag" value="${esc(cur.tag||'')}"><br>Colors: <input type="color" id="t1" value="${cur.tc1||'#dddddd'}"> <input type="color" id="t2" value="${cur.tc2||'#aaaaaa'}"> <button onclick="send({t:'settag',to:'${esc(n)}',text:tg.value,c1:t1.value,c2:t2.value})">Set</button><br><br>XP: <input id="gx" type="number" value="100" style="width:100px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant</button>`;e.stopPropagation()};
 $('menu').onclick=e=>e.stopPropagation();
 </script></body></html>
