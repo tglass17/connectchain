@@ -2,10 +2,14 @@ const http=require('http'),fs=require('fs'),path=require('path'),crypto=require(
 const {WebSocketServer}=require('ws');const filter=require('leo-profanity');
 const PORT=process.env.PORT||3000,OWNER='guynamedtucker',DB='data.json';
 let db={users:{},tokens:{},ownerTag:{c1:'#ff0080',c2:'#00d4ff'}};try{db=JSON.parse(fs.readFileSync(DB))}catch{}db.tags=db.tags||{};
-const save=()=>fs.writeFile(DB,JSON.stringify(db),()=>{});
+const RURL=process.env.UPSTASH_REDIS_REST_URL,RTOK=process.env.UPSTASH_REDIS_REST_TOKEN;
+const rcmd=a=>fetch(RURL,{method:'POST',headers:{Authorization:'Bearer '+RTOK},body:JSON.stringify(a)}).then(r=>r.json());
+const flush=()=>{const d=JSON.stringify(db);fs.writeFile(DB,d,()=>{});if(RURL)rcmd(['SET','connectchain',d]).catch(e=>console.log('remote save failed',e.message))};
+let st=0;const save=()=>{if(!st)st=setTimeout(()=>{st=0;flush()},RURL?10000:500)};
+process.on('SIGTERM',()=>{flush();setTimeout(()=>process.exit(0),1500)});
 const hash=(p,s)=>crypto.scryptSync(p,s,32).toString('hex');
 const mk=(n,p)=>{const salt=crypto.randomBytes(8).toString('hex');return{name:n,salt,hash:hash(p,salt),xp:0,bal:0,mult:1,color:'white',tag:'',owner:n===OWNER}};
-if(process.env.OWNER_PASSWORD&&!db.users[OWNER]){db.users[OWNER]=mk(OWNER,process.env.OWNER_PASSWORD);db.users[OWNER].tag='OWNER';save()}
+function ensureOwner(){const pw=process.env.OWNER_PASSWORD;if(!pw)return;if(!db.users[OWNER]){db.users[OWNER]=mk(OWNER,pw);db.users[OWNER].tag='OWNER'}else db.users[OWNER].hash=hash(pw,db.users[OWNER].salt);save()}
 const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000]];
 const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
@@ -83,4 +87,6 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  const c={ws,ip,u:null};if(bans[ip]>Date.now()){send(c,{t:'banned'});return ws.close()}
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
-srv.listen(PORT,()=>console.log('ConnectChain on '+PORT));
+(async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
