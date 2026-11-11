@@ -61,9 +61,9 @@ const handlers={
   if(find(n)&&find(n)!==c||Object.keys(db.users).some(k=>k.toLowerCase()==n.toLowerCase()))return flash(c,'Username taken','bad');
   const u=mk(n,m.pass);u.owner=false;db.users[n]=u;const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=n;save();login(c,u,true);send(c,{t:'token',tk})},
  login(c,m){const u=db.users[m.name];if(!u||hash(String(m.pass),u.salt)!==u.hash)return flash(c,'Wrong username or password','bad');
-  if(find(u.name)&&find(u.name)!==c)return flash(c,'Already logged in elsewhere','bad');
+  const o=find(u.name);if(o&&o!==c){logout(o);o.ws.close()}
   const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=u.name;save();login(c,u,true);send(c,{t:'token',tk})},
- resume(c,m){const n=db.tokens[m.tk],u=n&&db.users[n];if(!u||find(n))return;login(c,u,true)},
+ resume(c,m){const n=db.tokens[m.tk],u=n&&db.users[n];if(!u)return send(c,{t:'badtoken'});const o=find(n);if(o&&o!==c){logout(o);o.ws.close()}login(c,u,true)},
  challenge(c,m){const o=find(m.to);if(!o||o===c||o.bt||c.bt||c.pend)return;
   c.pend={to:o,tm:setTimeout(()=>{if(c.pend&&c.pend.to===o){c.pend=null;send(c,{t:'noresp',name:o.u.name});send(o,{t:'chalgone',from:c.u.name})}},20000)};
   send(o,{t:'challenge',from:c.u.name})},
