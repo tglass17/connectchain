@@ -8,27 +8,29 @@ const mk=(n,p)=>{const salt=crypto.randomBytes(8).toString('hex');return{name:n,
 if(process.env.OWNER_PASSWORD&&!db.users[OWNER]){db.users[OWNER]=mk(OWNER,process.env.OWNER_PASSWORD);db.users[OWNER].tag='OWNER';save()}
 const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000]];
 const SHOP={'1.5':500,'2':1000};
-const WORDS=['cat','sun','water','tree','car','book','fire','moon','house','king','ocean','bread','music','snow','key','bridge'];
+const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>({name:u.name,xp:u.xp,color:u.color,tag:u.tag,owner:!!u.owner});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
-const addXp=(c,n)=>{c.u.xp+=n;c.u.bal+=n;if(c.acct)save();send(c,{t:'me',me:me(c)})};
+const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
 function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby()}
-function logout(c){if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
+function logout(c){if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
 const cache=new Map();
 async function dm(q){if(cache.has(q))return cache.get(q);try{const r=await fetch('https://api.datamuse.com/words?max=80&'+q);const j=(await r.json()).map(x=>x.word);cache.set(q,j);return j}catch{return[]}}
 async function rel(a,b){const f=async(x,y)=>(await Promise.all([`rel_trg=${x}`,`ml=${x}`,`rel_bga=${x}`,`rel_bgb=${x}`,`rel_syn=${x}`].map(dm))).some(l=>l.includes(y));return(await f(a,b))||(await f(b,a))}
-function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0};a.bt=b.bt=bt;reset(bt,Math.round(Math.random()));lobby()}
+function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false};a.bt=b.bt=bt;
+ bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
+ setTimeout(()=>{if(a.bt===bt){bt.live=true;reset(bt,Math.round(Math.random()))}},4200)}
 function reset(bt,turn){bt.chain=[WORDS[Math.random()*WORDS.length|0]];bt.turn=turn;push(bt)}
 function push(bt){bt.p.forEach((c,i)=>send(c,{t:'battle',opp:pub(bt.p[1-i].u),chain:bt.chain,lives:bt.lives,you:i,turn:bt.turn}))}
 function end(c,won){const bt=c.bt;if(!bt)return;const i=bt.p.indexOf(c),o=bt.p[1-i];bt.p.forEach(x=>{x.bt=null});
  const w=won?c:o;if(w.u){addXp(w,Math.round(100*w.u.mult));send(w,{t:'over',win:true});send(w===c?o:c,{t:'over',win:false})}lobby()}
 function strike(c){c.strikes=(c.strikes||0)+1;if(c.strikes>=3){bans[c.ip]=Date.now()+6e5;send(c,{t:'banned'});c.ws.close()}
  else flash(c,c.strikes==2?'⚠ FINAL WARNING: keep it up and you will be banned.':'⚠ Warning: that word is not allowed.','warn')}
-async function submit(c,w){const bt=c.bt;if(!bt||bt.p[bt.turn]!==c||bt.busy)return;
+async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt.busy)return;
  w=String(w).toLowerCase().trim();if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only');
  if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
  bt.busy=true;const ok=!bt.chain.includes(w)&&await rel(bt.chain.at(-1),w);bt.busy=false;if(!c.bt)return;
@@ -50,8 +52,11 @@ const handlers={
   if(find(u.name)&&find(u.name)!==c)return flash(c,'Already logged in elsewhere','bad');
   const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=u.name;save();login(c,u,true);send(c,{t:'token',tk})},
  resume(c,m){const n=db.tokens[m.tk],u=n&&db.users[n];if(!u||find(n))return;login(c,u,true)},
- challenge(c,m){const o=find(m.to);if(o&&o!==c&&!o.bt&&!c.bt)send(o,{t:'challenge',from:c.u.name})},
- accept(c,m){const o=find(m.from);if(o&&!o.bt&&!c.bt)start(o,c)},
+ challenge(c,m){const o=find(m.to);if(!o||o===c||o.bt||c.bt||c.pend)return;
+  c.pend={to:o,tm:setTimeout(()=>{if(c.pend&&c.pend.to===o){c.pend=null;send(c,{t:'noresp',name:o.u.name});send(o,{t:'chalgone',from:c.u.name})}},20000)};
+  send(o,{t:'challenge',from:c.u.name})},
+ deny(c,m){const o=find(m.from);if(!o||!o.pend||o.pend.to!==c)return;clearTimeout(o.pend.tm);o.pend=null;send(o,{t:'denied',name:c.u.name})},
+ accept(c,m){const o=find(m.from);if(!o||!o.pend||o.pend.to!==c||o.bt||c.bt)return;clearTimeout(o.pend.tm);o.pend=null;start(o,c)},
  typing(c,m){if(c.bt)send(c.bt.p[1-c.bt.p.indexOf(c)],{t:'opptype',text:filter.clean(String(m.text).slice(0,24))})},
  submit(c,m){submit(c,m.word)},
  forfeit(c){end(c,false)},
