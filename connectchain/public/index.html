@@ -1,61 +1,94 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ConnectChain</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
 <style>
-*{font-family:'Fredoka One',sans-serif;box-sizing:border-box}body{margin:0;background:#12131a;color:#fff}
-header{display:flex;gap:8px;align-items:center;padding:10px 16px;background:#1d1f2b;flex-wrap:wrap}
-input,button,select{font-size:16px;padding:8px 12px;border-radius:10px;border:0;background:#2b2e40;color:#fff}button{cursor:pointer;background:#4f46e5}
-button.go{background:#22c55e}main{display:flex;gap:16px;padding:16px;flex-wrap:wrap}.card{background:#1d1f2b;border-radius:14px;padding:14px;min-width:260px}
-#game{flex:1;min-width:300px;text-align:center}#chain{font-size:28px;margin:16px 0;min-height:40px}#word{font-size:22px;width:70%}
-#flash{position:fixed;top:70px;left:50%;transform:translateX(-50%);font-size:24px;pointer-events:none;opacity:0;transition:opacity 2s}#flash.show{opacity:1;transition:none}
-.bad{color:#ff3b3b}.warn{color:#ffb020}.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0;gap:8px}
-.nm{cursor:pointer}.c-white{color:#fff}.c-blue{color:#3b82f6}.c-red{color:#ef4444}.c-yellow{color:#facc15}.c-green{color:#22c55e}.c-orange{color:#fb923c}
+*{font-family:'Fredoka One',sans-serif;box-sizing:border-box}
+body{margin:0;background:#b7f5c3;color:#14301c;min-height:100vh}
+header{display:flex;gap:10px;align-items:center;padding:12px 20px;background:#16a34a;color:#fff;flex-wrap:wrap;position:relative;z-index:20}
+header b{font-size:28px}#out{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{font-size:18px;padding:10px 14px;border-radius:12px;border:2px solid #fff;background:#fff;color:#14301c;outline:none}
+button{font-size:18px;padding:10px 16px;border-radius:12px;border:0;background:#15803d;color:#fff;cursor:pointer}
+button.go{background:#22c55e}button.no{background:#ef4444}
+main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:100%}@media(max-width:800px){main{grid-template-columns:1fr}}
+.panel{background:#fff;border-radius:18px;padding:20px;box-shadow:0 4px 14px #0002;margin-bottom:20px}
+#game{text-align:center;min-height:70vh}#vs{font-size:30px;margin:10px 0}#turn{font-size:24px;margin:12px}
+#chain{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:38px;min-height:80px;margin:20px 0}
+.chip{background:#dcfce7;padding:8px 20px;border-radius:14px;text-transform:capitalize}.chip:last-of-type{background:#22c55e;color:#fff}
+#word{font-size:32px;width:min(700px,92%);text-align:center;border:3px solid #16a34a;margin:10px 0}
+#oppbox{font-size:26px;margin-top:20px;padding:14px;background:#f0fdf4;border-radius:14px;min-height:60px}#opp{color:#15803d}
+.row{display:flex;justify-content:space-between;align-items:center;margin:8px 0;gap:8px;font-size:20px}
+#flash{position:fixed;top:80px;left:50%;transform:translateX(-50%);font-size:28px;pointer-events:none;opacity:0;transition:opacity 2s;z-index:60;background:#fff;padding:8px 20px;border-radius:14px}
+#flash.show{opacity:1;transition:none}.bad{color:#dc2626}.warn{color:#d97706}.ok{color:#15803d}
+#req{position:fixed;top:90px;right:20px;background:#fff;padding:18px;border-radius:16px;box-shadow:0 6px 24px #0004;display:none;z-index:40;font-size:22px;width:320px}
+#bar{height:8px;background:#22c55e;border-radius:4px;margin-top:12px}@keyframes drain{from{width:100%}to{width:0}}
+#ov{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;color:#fff;font-size:180px}
+#menu{position:fixed;background:#fff;padding:14px;border-radius:12px;display:none;z-index:70;box-shadow:0 4px 20px #0005}
+.nm{cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
 .c-blueg,.c-redorangeg,.c-greenhaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
-.c-blueg{background-image:linear-gradient(90deg,#3b82f6,#06b6d4,#3b82f6)}.c-redorangeg{background-image:linear-gradient(90deg,#ef4444,#fb923c,#ef4444)}
+.c-blueg{background-image:linear-gradient(90deg,#2563eb,#06b6d4,#2563eb)}.c-redorangeg{background-image:linear-gradient(90deg,#dc2626,#fb923c,#dc2626)}
 .c-greenhaze{background-image:linear-gradient(90deg,#14532d,#4ade80,#166534,#86efac,#14532d)}
-.c-rainbow,.owner{background-image:linear-gradient(90deg,red,orange,yellow,lime,cyan,blue,violet,red)}
-.owner{filter:drop-shadow(0 0 6px #fff8);font-size:1.1em}@keyframes mv{to{background-position:300% 0}}
-.tag{font-size:12px;padding:2px 8px;border-radius:6px;margin-left:6px;color:#000;background-size:200% 100%;animation:mv2 3s linear infinite alternate}@keyframes mv2{to{background-position:100% 0}}
-#menu{position:fixed;background:#2b2e40;padding:12px;border-radius:12px;display:none;z-index:9}
+.c-rainbow,.owner{background-image:linear-gradient(90deg,red,orange,#eab308,lime,cyan,blue,violet,red)}
+.owner{filter:drop-shadow(0 0 6px #ff0)}@keyframes mv{to{background-position:300% 0}}
+.tag{font-size:13px;padding:2px 8px;border-radius:6px;margin-left:6px;color:#000;background-size:200% 100%;animation:mv2 3s linear infinite alternate}@keyframes mv2{to{background-position:100% 0}}
 </style></head><body>
-<header><b style="font-size:24px">ConnectChain</b><input id="u" placeholder="type username here"><button onclick="guest()">Enter</button>
-<input id="an" placeholder="account name" size=12><input id="ap" type="password" placeholder="password" size=10>
-<button onclick="acct('signup')">Sign up</button><button onclick="acct('login')">Log in</button><button id="past" onclick="past()" style="display:none">Log in from past</button>
-<span id="me"></span></header>
-<main><div class="card" id="game"><div id="info">Pick a username, then press Battle! on someone.</div><div id="chain"></div>
-<input id="word" placeholder="your word..." disabled><button class="go" onclick="sub()">Go</button><button onclick="ws.send(JSON.stringify({t:'forfeit'}))">Forfeit</button>
-<p>Opponent typing: <span id="opp"></span></p></div>
-<div class="card"><b>Online</b><div id="list"></div></div>
-<div class="card" id="shop" style="display:none"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select>
-<p><b>Multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
-<div id="own" style="display:none"><p><b>Owner tag colors</b></p><input type="color" id="c1" value="#ff0080"><input type="color" id="c2" value="#00d4ff"><button onclick="send({t:'ownertag',c1:c1.value,c2:c2.value})">Save</button></div></div></main>
-<div id="flash"></div><div id="menu"></div>
+<header><b>ConnectChain</b>
+<div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
+<span>or</span><input id="an" placeholder="account name" size="12" autocomplete="off"><input id="ap" type="password" placeholder="password" size="10">
+<button onclick="acct('signup')">Sign up</button><button onclick="acct('login')">Log in</button><button id="past" onclick="past()" style="display:none">Log in from past</button></div>
+<span id="me"></span><span id="conn" style="margin-left:auto">● connecting…</span></header>
+<main><div><div class="panel" id="game">
+<div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
+<div id="arena" style="display:none"><div id="vs"></div><div id="chain"></div><div id="turn"></div>
+<input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
+<div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
+<div><div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
+<div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
+<p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
+<div id="own" style="display:none"><p><b>Owner tag colors</b></p><input type="color" id="c1" value="#ff0080"> <input type="color" id="c2" value="#00d4ff"> <button onclick="send({t:'ownertag',c1:c1.value,c2:c2.value})">Save</button></div></div></div></main>
+<div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
+<div id="ov"></div><div id="flash"></div><div id="menu"></div>
 <script>
-let ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],$=id=>document.getElementById(id);
-const send=o=>ws.send(JSON.stringify(o));
-function conn(){ws=new WebSocket(location.origin.replace('http','ws'));ws.onopen=()=>{if(localStorage.cctk)$('past').style.display=''};ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>setTimeout(conn,2000)}conn();
-const guest=()=>send({t:'guest',name:$('u').value}),acct=t=>send({t,name:$('an').value,pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
-$('u').onkeydown=e=>e.key=='Enter'&&guest();
-function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:'#ddd'},${o?ot.c2:'#aaa'},${o?ot.c1:'#ddd'})">${esc(u.tag)}</span>`:'';
- return `<span class="nm ${o?'owner':'c-'+u.color}" ${'data-n="'+esc(u.name)+'"'}>${esc(u.name)}</span>${t}`}
+const $=id=>document.getElementById(id);let ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let flashT;function flash(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'bad');clearTimeout(flashT);flashT=setTimeout(()=>f.className='',50)}
+function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'bad');clearTimeout(toast.t);toast.t=setTimeout(()=>f.className='',3000)}
+function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
+function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
+ ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk)$('past').style.display=''};
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
+$('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
+function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:'#ddd'},${o?ot.c2:'#aaa'},${o?ot.c1:'#ddd'})">${esc(u.tag)}</span>`:'';
+ return `<span class="nm ${o?'owner':'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.name)}</span>${t}`}
+const xpOf=u=>u.owner?'∞':u.xp;
+function chall(n){if(send({t:'challenge',to:n}))toast('Request sent to '+n+' — waiting up to 20 seconds…','ok')}
+function showReq(from){$('reqname').textContent=from;$('req').dataset.from=from;$('req').style.display='block';const b=$('bar');b.style.animation='none';void b.offsetWidth;b.style.animation='drain 20s linear forwards';clearTimeout(reqT);reqT=setTimeout(hideReq,20000)}
+function hideReq(){$('req').style.display='none';clearTimeout(reqT)}
+function reply(t){send({t,from:$('req').dataset.from});hideReq()}
+function countdown(opp){$('welcome').style.display='none';$('arena').style.display='';$('back').style.display='none';$('vs').innerHTML='You vs '+nm(opp);$('chain').innerHTML='';$('turn').textContent='Get ready!';$('word').value='';$('word').disabled=true;$('opp').textContent='';
+ const ov=$('ov');ov.style.display='flex';let n=3;ov.textContent=n;const iv=setInterval(()=>{n--;ov.textContent=n>0?n:'GO!';if(n<0){clearInterval(iv);ov.style.display='none'}},1000)}
+function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors){colors=m.colors}$('shop').style.display='';$('own').style.display=you.owner?'':'none';
-  $('me').innerHTML=nm(you)+` · ${you.xp} XP (${you.bal} to spend) · ${you.mult}x`;
+ if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('colbox').style.display=you.owner?'none':'';
+  $('me').innerHTML=nm(you)+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='token')localStorage.cctk=m.tk;
- if(m.t=='lobby'){ot=m.ownerTag;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${u.xp}</small></span>${you&&u.name!=you.name&&!u.busy?`<button class="go" onclick="send({t:'challenge',to:'${esc(u.name)}'})">Battle!</button>`:u.busy?'<small>in battle</small>':''}</div>`).join('')}
- if(m.t=='flash')flash(m.text,m.kind);
- if(m.t=='challenge'){if(confirm(m.from+' wants to battle! Accept?'))send({t:'accept',from:m.from})}
- if(m.t=='battle'){$('word').disabled=m.turn!=m.you;$('chain').textContent=m.chain.join(' → ');
-  $('info').innerHTML=`vs ${nm(m.opp)} · ❤️ you ${m.lives[m.you]} / them ${m.lives[1-m.you]} · ${m.turn==m.you?'YOUR TURN':'their turn'}`;if(m.turn==m.you)$('word').focus();$('word').value=''}
+ if(m.t=='lobby'){ot=m.ownerTag;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small></span>${you&&u.name!=you.name?(u.busy?'<small>in battle</small>':`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
+ if(m.t=='flash')toast(m.text,m.kind);
+ if(m.t=='challenge')showReq(m.from);
+ if(m.t=='chalgone'&&$('req').dataset.from==m.from)hideReq();
+ if(m.t=='noresp')toast(m.name+' did not respond','bad');
+ if(m.t=='denied')toast(m.name+' denied your battle request','bad');
+ if(m.t=='countdown'){hideReq();countdown(m.opp)}
+ if(m.t=='battle'){live=true;myTurn=m.turn==m.you;$('word').disabled=false;
+  $('chain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
+  $('vs').innerHTML=`${nm(you)} ${'❤️'.repeat(m.lives[m.you])} &nbsp; vs &nbsp; ${nm(m.opp)} ${'❤️'.repeat(m.lives[1-m.you])}`;
+  $('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
  if(m.t=='opptype')$('opp').textContent=m.text;
- if(m.t=='over'){$('word').disabled=true;$('info').textContent=m.win?'You win! +100 XP':'You lost.';$('chain').textContent=''}
- if(m.t=='banned'){document.body.innerHTML='<h1 style="padding:40px">⛔ You have been temporarily banned for using bad words.</h1>'}}
-const sub=()=>{send({t:'submit',word:$('word').value});$('word').value=''};
-$('word').oninput=e=>send({t:'typing',text:e.target.value});$('word').onkeydown=e=>e.key=='Enter'&&sub();
-document.onclick=e=>{const m=$('menu'),n=e.target.dataset?.n;m.style.display='none';if(!n||!you?.owner||n==you.name)return;
- m.style.cssText=`display:block;left:${e.clientX}px;top:${e.clientY}px`;
- m.innerHTML=`<b>${esc(n)}</b><br>Tags: <input id="tg" size=10 placeholder="custom tag"><button onclick="send({t:'settag',to:'${esc(n)}',text:tg.value})">Set</button><br>XP: <input id="gx" type="number" size=6 value=100 style="width:80px"><button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant</button>`;e.stopPropagation()};
+ if(m.t=='over'){live=false;$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
+ if(m.t=='banned')document.body.innerHTML='<h1 style="padding:40px">⛔ You have been temporarily banned for using bad words.</h1>'}
+function sub(){if(!live)return;if(!myTurn)return toast("Wait for your turn!",'warn');send({t:'submit',word:$('word').value});$('word').value='';send({t:'typing',text:''})}
+$('word').oninput=e=>send({t:'typing',text:e.target.value});$('word').onkeydown=e=>{if(e.key=='Enter')sub()};
+document.onclick=e=>{const m=$('menu'),n=e.target.dataset&&e.target.dataset.n;m.style.display='none';if(!n||!you||!you.owner||n==you.name)return;
+ m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';m.style.display='block';
+ m.innerHTML=`<b>${esc(n)}</b><br>Tag: <input id="tg" size="10" placeholder="custom tag"> <button onclick="send({t:'settag',to:'${esc(n)}',text:tg.value})">Set</button><br><br>XP: <input id="gx" type="number" value="100" style="width:100px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant</button>`;e.stopPropagation()};
 $('menu').onclick=e=>e.stopPropagation();
 </script></body></html>
