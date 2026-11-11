@@ -19,8 +19,10 @@ const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
 function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby()}
 function logout(c){if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
 const cache=new Map();
-async function dm(q){if(cache.has(q))return cache.get(q);try{const r=await fetch('https://api.datamuse.com/words?max=80&'+q);const j=(await r.json()).map(x=>x.word);cache.set(q,j);return j}catch{return[]}}
-async function rel(a,b){const f=async(x,y)=>(await Promise.all([`rel_trg=${x}`,`ml=${x}`,`rel_bga=${x}`,`rel_bgb=${x}`,`rel_syn=${x}`].map(dm))).some(l=>l.includes(y));return(await f(a,b))||(await f(b,a))}
+async function dm(q){if(cache.has(q))return cache.get(q);try{const r=await fetch('https://api.datamuse.com/words?max=400&'+q);const j=(await r.json()).map(x=>x.word);cache.set(q,j);return j}catch{return[]}}
+const KINDS=['rel_trg','ml','rel_bga','rel_bgb','rel_syn','rel_gen','rel_spc','rel_com','rel_par','rel_jja','rel_jjb'];
+const relset=async w=>new Set((await Promise.all(KINDS.map(k=>dm(k+'='+w)))).flat());
+async function rel(a,b){const[A,B]=await Promise.all([relset(a),relset(b)]);if(A.has(b)||B.has(a))return true;let n=0;for(const w of A)if(B.has(w)&&++n>=3)return true;return false}
 function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false};a.bt=b.bt=bt;
  bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
  setTimeout(()=>{if(a.bt===bt){bt.live=true;reset(bt,Math.round(Math.random()))}},4200)}
