@@ -41,7 +41,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <button onclick="acct('signup')">Sign up</button><button onclick="acct('login')">Log in</button><button id="past" onclick="past()" style="display:none">Log in from past</button></div>
 <span id="me"></span><span id="conn" style="margin-left:auto">● connecting…</span></header>
 <main><div><div class="panel" id="game">
-<div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
+<div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. <b>Guests lose their XP when they leave — sign up to keep it.</b> Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
 <div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
 <div id="arena" style="display:none"><div id="vs"></div><div id="chain"></div><div id="turn"></div>
 <input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
@@ -58,8 +58,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'bad');clearTimeout(toast.t);toast.t=setTimeout(()=>f.className='',3000)}
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
 function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
- ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk)$('past').style.display=''};
- ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+ ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}};
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{you=null;$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
@@ -82,6 +82,7 @@ function on(m){
  if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
+ if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
  if(m.t=='token')localStorage.cctk=m.tk;
  if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small></span>${you&&u.name!=you.name?(u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
  if(m.t=='flash')toast(m.text,m.kind);
