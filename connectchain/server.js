@@ -10,7 +10,7 @@ process.on('SIGTERM',()=>{flush();setTimeout(()=>process.exit(0),1500)});
 const hash=(p,s)=>crypto.scryptSync(p,s,32).toString('hex');
 const mk=(n,p)=>{const salt=crypto.randomBytes(8).toString('hex');return{name:n,salt,hash:hash(p,salt),xp:0,bal:0,mult:1,color:'white',tag:'',owner:n===OWNER}};
 function ensureOwner(){const pw=process.env.OWNER_PASSWORD;if(!pw)return;if(!db.users[OWNER]){db.users[OWNER]=mk(OWNER,pw);db.users[OWNER].tag='OWNER'}else db.users[OWNER].hash=hash(pw,db.users[OWNER].salt);save()}
-const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000]];
+const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000],['purplehaze',7000]];
 const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
@@ -22,7 +22,7 @@ const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
-function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby()}
+function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c)}
 function logout(c){if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
@@ -54,6 +54,12 @@ async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt
 const find=n=>online.get(String(n).toLowerCase());
 function target(n){const c=find(n);if(c)return{c,u:c.u};const u=Object.values(db.users).find(x=>x.name.toLowerCase()==String(n).toLowerCase());return u&&{u}}
 const okName=n=>/^[A-Za-z0-9_]{3,16}$/.test(n)&&!filter.check(n);
+let poll=null,pollT,pollBc;
+const pkey=c=>c.u.name.toLowerCase();
+function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
+function sendPoll(c){if(!poll||!c.u)return;send(c,{t:'poll',poll:pview(),mine:poll.votes[pkey(c)]})}
+function bcPoll(){for(const x of online.values())sendPoll(x)}
+function endPoll(){if(!poll||poll.done)return;poll.done=true;clearTimeout(pollT);bcPoll()}
 const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
 const banInfo=n=>{const k=String(n||'').toLowerCase(),b=db.bans[k];if(!b)return null;if(b.until&&b.until<Date.now()){delete db.bans[k];save();return null}return b};
@@ -94,6 +100,11 @@ const handlers={
  setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  scare(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to),i=m.img;if(!t||!t.c||t.u.owner)return;if(typeof i!=='string'||i.length>400000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(i))return;send(t.c,{t:'scare',img:i})},
  addlife(c,m){if(!c.u?.owner||!c.acct)return;const bt=c.bt||c.watch;if(!bt||!bt.live)return;const i=m.i===1?1:0;bt.lives[i]=Math.min(10,bt.lives[i]+1);push(bt)},
+ startpoll(c,m){if(!c.u?.owner||!c.acct)return;const q=String(m.q||'').trim().slice(0,120),o=(Array.isArray(m.opts)?m.opts:[]).map(x=>String(x||'').trim().slice(0,40)).filter(Boolean).slice(0,4);
+  if(!q||o.length<2)return flash(c,'A poll needs a question and at least 2 options','bad');
+  const secs=Math.min(600,Math.max(15,Math.floor(+m.secs)||60));clearTimeout(pollT);poll={id:Date.now(),q,opts:o,votes:{},endsAt:Date.now()+secs*1000,done:false,by:dn(c.u)};pollT=setTimeout(endPoll,secs*1000);bcPoll()},
+ endpoll(c){if(c.u?.owner&&c.acct)endPoll()},
+ vote(c,m){if(!poll||poll.done||Date.now()>poll.endsAt||m.id!==poll.id)return;const i=m.i|0;if(i<0||i>=poll.opts.length)return;poll.votes[pkey(c)]=i;clearTimeout(pollBc);pollBc=setTimeout(bcPoll,250)},
  grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
