@@ -63,10 +63,10 @@ function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
- return `<span class="nm ${o?'owner':'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.name)}</span>${t}`}
+ return `<span class="nm ${o?'owner':'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.dn||u.name)}</span>${t}`}
 const xpOf=u=>u.owner?'∞':u.xp;
-function chall(n){if(send({t:'challenge',to:n}))toast('Request sent to '+n+' — waiting up to 20 seconds…','ok')}
-function showReq(from){$('reqname').textContent=from;$('req').dataset.from=from;$('req').style.display='block';const b=$('bar');b.style.animation='none';void b.offsetWidth;b.style.animation='drain 20s linear forwards';clearTimeout(reqT);reqT=setTimeout(hideReq,20000)}
+function chall(n){if(send({t:'challenge',to:n}))toast('Request sent to '+((lastList.find(x=>x.name==n)||{}).dn||n)+' — waiting up to 20 seconds…','ok')}
+function showReq(from,d){$('reqname').textContent=d||from;$('req').dataset.from=from;$('req').style.display='block';const b=$('bar');b.style.animation='none';void b.offsetWidth;b.style.animation='drain 20s linear forwards';clearTimeout(reqT);reqT=setTimeout(hideReq,20000)}
 function hideReq(){$('req').style.display='none';clearTimeout(reqT)}
 function reply(t){send({t,from:$('req').dataset.from});hideReq()}
 function countdown(opp){$('spectate').style.display='none';$('welcome').style.display='none';$('arena').style.display='';$('back').style.display='none';$('vs').innerHTML='You vs '+nm(opp);$('chain').innerHTML='';$('turn').textContent='Get ready!';$('word').value='';$('word').disabled=true;$('opp').textContent='';
@@ -75,18 +75,18 @@ function watch(n){$('sfeed').innerHTML='';send({t:'watch',who:n})}
 function stopWatch(){send({t:'unwatch'});$('spectate').style.display='none';$('welcome').style.display=''}
 function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.repeat(m.lives[0])} &nbsp; vs &nbsp; ${nm(b)} ${'❤️'.repeat(m.lives[1])}`;
  $('schain').innerHTML=m.chain.slice(-4).map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
- $('sturn').textContent=m.live?(m.turn==0?a.name:b.name)+"'s turn":'Match is starting…';
+ $('sturn').textContent=m.live?(m.turn==0?(a.dn||a.name):(b.dn||b.name))+"'s turn":'Match is starting…';
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
  if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('colbox').style.display=you.owner?'none':'';
-  $('me').innerHTML=nm(you)+` · ${xpOf(you)} XP · ${you.mult}x`;
+  $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
  if(m.t=='token')localStorage.cctk=m.tk;
  if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small></span>${you&&u.name!=you.name?(u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
  if(m.t=='flash')toast(m.text,m.kind);
- if(m.t=='challenge')showReq(m.from);
+ if(m.t=='challenge')showReq(m.from,m.dn);
  if(m.t=='chalgone'&&$('req').dataset.from==m.from)hideReq();
  if(m.t=='noresp')toast(m.name+' did not respond','bad');
  if(m.t=='denied')toast(m.name+' denied your battle request','bad');
@@ -119,6 +119,9 @@ function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)|
  prev()}
 function closeMenu(){$('menu').style.display='none'}
 function saveTag(rm){if(tagTo=='__me')send({t:'ownertag',c1:tagSel[0],c2:tagSel[1]});else send({t:'settag',to:tagTo,text:rm?'':$('tg').value,c1:tagSel[0],c2:tagSel[1]});toast(rm?'Tag removed':'Tag saved','ok');closeMenu()}
+function openNameEdit(){const m=$('menu');m.style.display='block';
+ m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">Edit display name</h3><p>Your username <b>${esc(you.name)}</b> stays the same. This only changes the name other people see.</p><input id="dnm" maxlength="20" value="${esc(you.dn||you.name)}" style="width:100%" onkeydown="if(event.key=='Enter')saveName()"><p><button class="go" onclick="saveName()">Save</button> <button onclick="saveName(true)">Reset to username</button></p>`;$('dnm').focus()}
+function saveName(r){send({t:'setdisplay',text:r?'':$('dnm').value});closeMenu()}
 document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target))closeMenu();return}
- const n=e.target.dataset&&e.target.dataset.n;if(!n||!you||!you.owner||n==you.name)return;openMenu(n)};
+ const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner)openMenu(n)};
 </script></body></html>
