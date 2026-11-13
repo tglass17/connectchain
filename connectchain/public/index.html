@@ -25,8 +25,8 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 .sw{display:inline-block;width:30px;height:30px;border-radius:8px;margin:3px;cursor:pointer;border:2px solid #0003;vertical-align:middle}
 .stage{container-type:inline-size;aspect-ratio:16/9;width:100%;max-width:1200px;margin:0 auto;background:#f0fdf4;border-radius:24px;overflow:hidden}
 .sin{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;padding:2cqw;text-align:center}
-.sh{font-size:3cqw}.sv{font-size:4cqw}.sc{display:flex;flex-wrap:nowrap;gap:1.2cqw;justify-content:center;align-items:center;font-size:4cqw;height:8cqw;max-width:96cqw;overflow:hidden}.sc .chip{padding:.8cqw 2cqw;border-radius:1.6cqw}
-.st{font-size:3cqw}.sy{font-size:2.8cqw;background:#fff;border-radius:2cqw;padding:1.4cqw 3cqw;min-width:50cqw}.sf{font-size:2.2cqw;height:7cqw;overflow:hidden}.sb{font-size:2.4cqw;padding:1cqw 3cqw;border-radius:1.6cqw}
+.sh{font-size:3cqw}.sv{font-size:4cqw}.sc{display:flex;flex-wrap:nowrap;gap:1.2cqw;justify-content:center;align-items:center;font-size:4cqw;height:7cqw;max-width:96cqw;overflow:hidden}.sc .chip{padding:.8cqw 2cqw;border-radius:1.6cqw}
+.st{font-size:3cqw}.sy{font-size:2.8cqw;background:#fff;border-radius:2cqw;padding:1.4cqw 3cqw;min-width:50cqw}.sf{font-size:2.2cqw;height:5cqw;overflow:hidden}.sb{font-size:2.4cqw;padding:1cqw 3cqw;border-radius:1.6cqw}
 .nm{cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
 .c-blueg,.c-redorangeg,.c-greenhaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
 .c-blueg{background-image:linear-gradient(90deg,#2563eb,#06b6d4,#2563eb)}.c-redorangeg{background-image:linear-gradient(90deg,#dc2626,#fb923c,#dc2626)}
@@ -34,6 +34,9 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 .c-rainbow,.owner{background-image:linear-gradient(90deg,red,orange,#eab308,lime,cyan,blue,violet,red)}
 .owner{filter:drop-shadow(0 0 6px #ff0)}@keyframes mv{to{background-position:300% 0}}
 .tag{font-size:13px;padding:2px 8px;border-radius:6px;margin-left:6px;color:#000;background-size:200% 100%;animation:mv2 3s linear infinite alternate}@keyframes mv2{to{background-position:100% 0}}
+#banner{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;max-width:92vw;padding:16px 28px;border-radius:16px;font-size:26px;display:none;box-shadow:0 8px 30px #0006;text-align:center}
+.ann{background:#2563eb;color:#fff}.wrn{background:#f59e0b;color:#111}
+#scare{position:fixed;inset:0;background:#000;z-index:100;display:none;align-items:center;justify-content:center}#scare img{max-width:100%;max-height:100%}
 </style></head><body>
 <header><b>ConnectChain</b>
 <div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
@@ -42,28 +45,29 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <span id="me"></span><span id="conn" style="margin-left:auto">● connecting…</span></header>
 <main><div><div class="panel" id="game">
 <div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. <b>Guests lose their XP when they leave — sign up to keep it.</b> Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
-<div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
-<div id="arena" style="display:none"><div id="vs"></div><div id="chain"></div><div id="turn"></div>
+<div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="slife" style="font-size:2cqw"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
+<div id="arena" style="display:none"><div id="vs"></div><div id="alife"></div><div id="chain"></div><div id="turn"></div>
 <input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
 <div><div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
-<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button></div></div></div></main>
+<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button></div>
+<div id="modp" style="display:none"><p><b>Mod tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
-<div id="ov"></div><div id="flash"></div><div id="menu"></div>
+<div id="ov"></div><div id="banner"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
-const $=id=>document.getElementById(id);let lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
+const $=id=>document.getElementById(id);let isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'bad');clearTimeout(toast.t);toast.t=setTimeout(()=>f.className='',3000)}
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
 function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
  ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}};
- ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{you=null;$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
- return `<span class="nm ${o?'owner':'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.dn||u.name)}</span>${t}`}
+ return (u.mod?'🛡️':'')+`<span class="nm ${o?'owner':'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.dn||u.name)}</span>${t}`}
 const xpOf=u=>u.owner?'∞':u.xp;
 function chall(n){if(send({t:'challenge',to:n}))toast('Request sent to '+((lastList.find(x=>x.name==n)||{}).dn||n)+' — waiting up to 20 seconds…','ok')}
 function showReq(from,d){$('reqname').textContent=d||from;$('req').dataset.from=from;$('req').style.display='block';const b=$('bar');b.style.animation='none';void b.offsetWidth;b.style.animation='drain 20s linear forwards';clearTimeout(reqT);reqT=setTimeout(hideReq,20000)}
@@ -76,10 +80,11 @@ function stopWatch(){send({t:'unwatch'});$('spectate').style.display='none';$('w
 function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.repeat(m.lives[0])} &nbsp; vs &nbsp; ${nm(b)} ${'❤️'.repeat(m.lives[1])}`;
  $('schain').innerHTML=m.chain.slice(-4).map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
  $('sturn').textContent=m.live?(m.turn==0?(a.dn||a.name):(b.dn||b.name))+"'s turn":'Match is starting…';
+ $('slife').innerHTML=you&&you.owner?`<button class="sb" onclick="addLife(0)">+1 ❤️ ${esc(a.dn||a.name)}</button> <button class="sb" onclick="addLife(1)">+1 ❤️ ${esc(b.dn||b.name)}</button>`:'';
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('colbox').style.display=you.owner?'none':'';
+ if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('modp').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
@@ -94,14 +99,18 @@ function on(m){
  if(m.t=='battle'){live=true;myTurn=m.turn==m.you;$('word').disabled=false;
   $('chain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
   $('vs').innerHTML=`${nm(you)} ${'❤️'.repeat(m.lives[m.you])} &nbsp; vs &nbsp; ${nm(m.opp)} ${'❤️'.repeat(m.lives[1-m.you])}`;
-  $('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
+  $('alife').innerHTML=you&&you.owner?`<button onclick="addLife(${m.you})">+1 ❤️ me</button> <button onclick="addLife(${1-m.you})">+1 ❤️ opponent</button>`:'';$('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
+ if(m.t=='announce')banner('📢 '+m.from+': '+m.text,'ann',5000);
+ if(m.t=='warned')banner('⚠️ Warning from '+m.by+' (#'+m.count+'): '+m.text,'wrn',8000);
+ if(m.t=='scare'){const s=$('scare');$('scimg').src=m.img;s.style.display='flex';setTimeout(()=>s.style.display='none',1000)}
+ if(m.t=='banlist'){const mm=$('menu');mm.style.display='block';mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">Ban list</h3>`+(m.list.length?m.list.map(b=>`<div class="row"><span>${esc(b.name)} <small>${b.until?'until '+new Date(b.until).toLocaleString():'forever'}${b.reason?' — '+esc(b.reason):''}</small></span><button onclick="send({t:'unban',name:'${esc(b.name)}'})">Unban</button></div>`).join(''):'Nobody is banned.')}
  if(m.t=='spec'){hideReq();$('welcome').style.display='none';$('arena').style.display='none';$('spectate').style.display='';specRender(m)}
  if(m.t=='spectype'){const e=$('styp'+m.who);if(e)e.textContent=m.text}
  if(m.t=='specmsg'){const f=$('sfeed');f.insertAdjacentHTML('afterbegin',`<div class="bad">${esc(m.text)}</div>`);while(f.children.length>3)f.lastChild.remove()}
  if(m.t=='specover')$('sturn').textContent='🏁 '+m.winner+' won the match!';
  if(m.t=='opptype')$('opp').textContent=m.text;
- if(m.t=='over'){live=false;$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
- if(m.t=='banned')document.body.innerHTML='<h1 style="padding:40px">⛔ You have been temporarily banned for using bad words.</h1>'}
+ if(m.t=='over'){live=false;$('alife').innerHTML='';$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
+ if(m.t=='banned'){isBanned=true;document.body.innerHTML=`<h1 style="padding:40px">⛔ You are banned${m.manual?(m.until?' until '+new Date(m.until).toLocaleString():' permanently'):' for 10 minutes for using bad words'}.${m.reason?'<br>Reason: '+esc(m.reason):''}</h1>`}}
 function sub(){if(!live)return;if(!myTurn)return toast("Wait for your turn!",'warn');send({t:'submit',word:$('word').value});$('word').value='';send({t:'typing',text:''})}
 $('word').oninput=e=>send({t:'typing',text:e.target.value});$('word').onkeydown=e=>{if(e.key=='Enter')sub()};
 let tagSel=['#dddddd','#aaaaaa'],tagTo='';
@@ -109,19 +118,30 @@ const SW=['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#8b5cf6',
 const swRow=i=>SW.map(c=>`<span class="sw" style="background:${c}" onclick="pickC(${i},'${c}')"></span>`).join('')+`<input type="color" value="${tagSel[i]}" oninput="pickC(${i},this.value)">`;
 function prev(){const p=$('pv'),t=$('tg');p.style.backgroundImage=`linear-gradient(90deg,${tagSel[0]},${tagSel[1]},${tagSel[0]})`;p.textContent=(t&&t.value)||(tagTo=='__me'?'OWNER':'TAG')}
 function pickC(i,c){tagSel[i]=c;prev()}
-function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{};
+function banner(t,cls,ms){const b=$('banner');b.textContent=t;b.className=cls;b.style.display='block';clearTimeout(bT);bT=setTimeout(()=>b.style.display='none',ms)}
+function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{},own=you.owner;
  tagSel=me?[ot.c1,ot.c2]:[cur.tc1||'#dddddd',cur.tc2||'#aaaaaa'];
  const m=$('menu');m.style.display='block';
- m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">${me?'My owner tag':esc(n)}</h3>`+
- (me?'':`Tag text: <input id="tg" maxlength="16" value="${esc(cur.tag||'')}" oninput="prev()"><br>`)+
- `<p>Color 1:<br>${swRow(0)}</p><p>Color 2:<br>${swRow(1)}</p><p>Preview: <span id="pv" class="tag" style="font-size:18px"></span></p><button class="go" onclick="saveTag()">Save tag</button> `+
- (me?'':`<button class="no" onclick="saveTag(true)">Remove tag</button><hr>XP: <input id="gx" type="number" value="100" style="width:110px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant XP</button>`);
- prev()}
+ let h=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">${me?'My owner tag':esc(cur.dn||n)}${cur.mod?' 🛡️':''}</h3>`;
+ if(own){h+=(me?'':`Tag text: <input id="tg" maxlength="16" value="${esc(cur.tag||'')}" oninput="prev()"><br>`)+
+  `<p>Color 1:<br>${swRow(0)}</p><p>Color 2:<br>${swRow(1)}</p><p>Preview: <span id="pv" class="tag" style="font-size:18px"></span></p><button class="go" onclick="saveTag()">Save tag</button> `+
+  (me?'':`<button class="no" onclick="saveTag(true)">Remove tag</button><hr>XP: <input id="gx" type="number" value="100" style="width:110px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant XP</button>`);
+  if(!me&&!cur.owner)h+=`<hr><b>Mod Powers</b><br>${cur.mod?`<button class="no" onclick="setMod('${esc(n)}',false)">Revoke Mod</button>`:`<button class="go" onclick="setMod('${esc(n)}',true)">Grant Mod</button>`}`}
+ if(!me&&!cur.owner&&(own||!cur.mod))h+=`<hr><b>Moderation</b><br><input id="wtxt" maxlength="100" placeholder="warning message" style="width:100%"><button onclick="doWarn('${esc(n)}')">⚠️ Warn</button><br><br>Ban: <input id="bn" type="number" value="10" min="1" style="width:80px"> <select id="bu"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option><option value="0">forever</option></select><br><input id="br" maxlength="80" placeholder="reason (optional)" style="width:100%"><button class="no" onclick="doBan('${esc(n)}')">🔨 Ban</button>`;
+ if(own&&!me&&!cur.owner)h+=`<hr><b>Owner tricks</b><br><input type="file" id="sf" accept="image/*" onchange="loadScare(this)"><span id="sst">${localStorage.scareImg?' (saved image ready)':''}</span><br><button onclick="doScare('${esc(n)}')">👻 Jumpscare (1 second)</button>`;
+ m.innerHTML=h;if(own)prev()}
+const setMod=(n,on)=>{send({t:'setmod',to:n,on});closeMenu()};
+const doWarn=n=>{send({t:'warn',to:n,text:$('wtxt').value});toast('Warning sent','ok');closeMenu()};
+const doBan=n=>{const v=+$('bn').value,u=+$('bu').value;send({t:'ban',to:n,mins:u?Math.max(1,v)*u:0,reason:$('br').value});closeMenu()};
+const sendAnn=()=>{send({t:'announce',text:$('gmsg').value});$('gmsg').value=''};
+const addLife=i=>send({t:'addlife',i});
+function loadScare(inp){const f=inp.files[0];if(!f)return;const img=new Image(),url=URL.createObjectURL(f);img.onload=()=>{const k=Math.min(1,600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);scareData=c.toDataURL('image/jpeg',.8);try{localStorage.scareImg=scareData}catch(e){}$('sst').textContent=' saved ✔';URL.revokeObjectURL(url)};img.src=url}
+function doScare(n){const d=scareData||localStorage.scareImg;if(!d)return toast('Upload an image first','warn');send({t:'scare',to:n,img:d});toast('Jumpscare sent!','ok')}
 function closeMenu(){$('menu').style.display='none'}
 function saveTag(rm){if(tagTo=='__me')send({t:'ownertag',c1:tagSel[0],c2:tagSel[1]});else send({t:'settag',to:tagTo,text:rm?'':$('tg').value,c1:tagSel[0],c2:tagSel[1]});toast(rm?'Tag removed':'Tag saved','ok');closeMenu()}
 function openNameEdit(){const m=$('menu');m.style.display='block';
  m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">Edit display name</h3><p>Your username <b>${esc(you.name)}</b> stays the same. This only changes the name other people see.</p><input id="dnm" maxlength="20" value="${esc(you.dn||you.name)}" style="width:100%" onkeydown="if(event.key=='Enter')saveName()"><p><button class="go" onclick="saveName()">Save</button> <button onclick="saveName(true)">Reset to username</button></p>`;$('dnm').focus()}
 function saveName(r){send({t:'setdisplay',text:r?'':$('dnm').value});closeMenu()}
 document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target))closeMenu();return}
- const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner)openMenu(n)};
+ const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner||you.mod)openMenu(n)};
 </script></body></html>
