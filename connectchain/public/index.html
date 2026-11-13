@@ -28,15 +28,19 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 .sh{font-size:3cqw}.sv{font-size:4cqw}.sc{display:flex;flex-wrap:nowrap;gap:1.2cqw;justify-content:center;align-items:center;font-size:4cqw;height:7cqw;max-width:96cqw;overflow:hidden}.sc .chip{padding:.8cqw 2cqw;border-radius:1.6cqw}
 .st{font-size:3cqw}.sy{font-size:2.8cqw;background:#fff;border-radius:2cqw;padding:1.4cqw 3cqw;min-width:50cqw}.sf{font-size:2.2cqw;height:5cqw;overflow:hidden}.sb{font-size:2.4cqw;padding:1cqw 3cqw;border-radius:1.6cqw}
 .nm{cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
-.c-blueg,.c-redorangeg,.c-greenhaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
+.c-blueg,.c-redorangeg,.c-greenhaze,.c-purplehaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
 .c-blueg{background-image:linear-gradient(90deg,#2563eb,#06b6d4,#2563eb)}.c-redorangeg{background-image:linear-gradient(90deg,#dc2626,#fb923c,#dc2626)}
 .c-greenhaze{background-image:linear-gradient(90deg,#14532d,#4ade80,#166534,#86efac,#14532d)}
+.c-purplehaze{background-image:linear-gradient(90deg,#5b21b6 0%,#7c3aed 35%,#a78bfa 42%,#bae6fd 50%,#38bdf8 54%,#7c3aed 62%,#5b21b6 100%)}
 .c-rainbow,.owner{background-image:linear-gradient(90deg,red,orange,#eab308,lime,cyan,blue,violet,red)}
 .owner{filter:drop-shadow(0 0 6px #ff0)}@keyframes mv{to{background-position:300% 0}}
 .tag{font-size:13px;padding:2px 8px;border-radius:6px;margin-left:6px;color:#000;background-size:200% 100%;animation:mv2 3s linear infinite alternate}@keyframes mv2{to{background-position:100% 0}}
 #banner{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;max-width:92vw;padding:16px 28px;border-radius:16px;font-size:26px;display:none;box-shadow:0 8px 30px #0006;text-align:center}
 .ann{background:#2563eb;color:#fff}.wrn{background:#f59e0b;color:#111}
 #scare{position:fixed;inset:0;background:#000;z-index:100;display:none;align-items:center;justify-content:center}#scare img{max-width:100%;max-height:100%}
+#pollbox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,92vw);background:#fff;border-radius:18px;padding:22px;box-shadow:0 8px 40px #0007;z-index:80;display:none}
+.po{position:relative;display:block;width:100%;text-align:left;margin:8px 0;padding:12px 16px;border-radius:12px;background:#e5e7eb;color:#14301c;overflow:hidden;font-size:20px}
+.po i{position:absolute;left:0;top:0;bottom:0;background:#86efac;z-index:0;transition:width .3s}.po span{position:relative;z-index:1}.po.me{outline:3px solid #16a34a}
 </style></head><body>
 <header><b>ConnectChain</b>
 <div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
@@ -52,10 +56,10 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <div><div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
-<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button></div>
+<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button><hr><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
 <div id="modp" style="display:none"><p><b>Mod tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
-<div id="ov"></div><div id="banner"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
+<div id="ov"></div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
 const $=id=>document.getElementById(id);let isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -100,6 +104,7 @@ function on(m){
   $('chain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
   $('vs').innerHTML=`${nm(you)} ${'❤️'.repeat(m.lives[m.you])} &nbsp; vs &nbsp; ${nm(m.opp)} ${'❤️'.repeat(m.lives[1-m.you])}`;
   $('alife').innerHTML=you&&you.owner?`<button onclick="addLife(${m.you})">+1 ❤️ me</button> <button onclick="addLife(${1-m.you})">+1 ❤️ opponent</button>`:'';$('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
+ if(m.t=='poll')showPoll(m.poll,m.mine);
  if(m.t=='announce')banner('📢 '+m.from+': '+m.text,'ann',5000);
  if(m.t=='warned')banner('⚠️ Warning from '+m.by+' (#'+m.count+'): '+m.text,'wrn',8000);
  if(m.t=='scare'){const s=$('scare');$('scimg').src=m.img;s.style.display='flex';setTimeout(()=>s.style.display='none',1000)}
@@ -118,6 +123,16 @@ const SW=['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#8b5cf6',
 const swRow=i=>SW.map(c=>`<span class="sw" style="background:${c}" onclick="pickC(${i},'${c}')"></span>`).join('')+`<input type="color" value="${tagSel[i]}" oninput="pickC(${i},this.value)">`;
 function prev(){const p=$('pv'),t=$('tg');p.style.backgroundImage=`linear-gradient(90deg,${tagSel[0]},${tagSel[1]},${tagSel[0]})`;p.textContent=(t&&t.value)||(tagTo=='__me'?'OWNER':'TAG')}
 function pickC(i,c){tagSel[i]=c;prev()}
+let poll=null,mine=null,pollEnd=0,pollIv,pollHidden=0;
+function showPoll(p,mi){poll=p;mine=mi;pollEnd=Date.now()+p.ms;if(p.id==pollHidden)return;renderPoll();clearInterval(pollIv);if(!p.done)pollIv=setInterval(tickPoll,500)}
+function tickPoll(){const e=$('ptime');if(!e||!poll)return;const l=Math.max(0,Math.ceil((pollEnd-Date.now())/1000));e.textContent=l+'s left'}
+function renderPoll(){const p=poll,b=$('pollbox'),done=p.done||Date.now()>pollEnd+1500,pc=i=>p.total?Math.round(p.counts[i]*100/p.total):0;b.style.display='block';
+ b.innerHTML=`<div style="text-align:right"><button class="no" onclick="closePoll()">✕</button></div><h2 style="margin:0 0 6px">📊 ${esc(p.q)}</h2><small>${done?'Final results':'Poll by '+esc(p.by)+' · <span id="ptime"></span>'} · ${p.total} vote${p.total==1?'':'s'}</small>`+
+ p.opts.map((o,i)=>`<button class="po${mine===i?' me':''}" ${done?'disabled':''} onclick="castVote(${i})"><i style="width:${pc(i)}%"></i><span>${esc(o)} — ${p.counts[i]} (${pc(i)}%)</span></button>`).join('')+(you&&you.owner&&!done?`<button class="no" onclick="send({t:'endpoll'})">End poll now</button>`:'');
+ if(done)clearInterval(pollIv);else tickPoll()}
+function closePoll(){pollHidden=poll?poll.id:0;$('pollbox').style.display='none';clearInterval(pollIv)}
+function castVote(i){if(!poll)return;send({t:'vote',id:poll.id,i});mine=i;renderPoll()}
+function startPoll(){send({t:'startpoll',q:$('pq').value,opts:[...document.querySelectorAll('.pop')].map(x=>x.value),secs:+$('ps').value});toast('Poll sent to everyone','ok')}
 function banner(t,cls,ms){const b=$('banner');b.textContent=t;b.className=cls;b.style.display='block';clearTimeout(bT);bT=setTimeout(()=>b.style.display='none',ms)}
 function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{},own=you.owner;
  tagSel=me?[ot.c1,ot.c2]:[cur.tc1||'#dddddd',cur.tc2||'#aaaaaa'];
