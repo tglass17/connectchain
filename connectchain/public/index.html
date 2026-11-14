@@ -42,13 +42,13 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 .po{position:relative;display:block;width:100%;text-align:left;margin:8px 0;padding:12px 16px;border-radius:12px;background:#e5e7eb;color:#14301c;overflow:hidden;font-size:20px}
 .po i{position:absolute;left:0;top:0;bottom:0;background:#86efac;z-index:0;transition:width .3s}.po span{position:relative;z-index:1}.po.me{outline:3px solid #16a34a}
 .bdg{position:absolute;top:-6px;right:-8px;background:#ef4444;color:#fff;border-radius:999px;font-size:13px;padding:1px 7px}
-#mrbtn{position:fixed;left:16px;bottom:16px;z-index:25;box-shadow:0 4px 14px #0004}
+#bl{position:fixed;left:16px;bottom:16px;z-index:25;display:flex;gap:10px}#bl button{box-shadow:0 4px 14px #0004}
 </style></head><body>
 <header><b>ConnectChain</b>
 <div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
 <span>or</span><input id="an" placeholder="account name" size="12" autocomplete="off"><input id="ap" type="password" placeholder="password" size="10">
 <button onclick="acct('signup')">Sign up</button><button onclick="acct('login')">Log in</button><button id="past" onclick="past()" style="display:none">Log in from past</button></div>
-<span id="me"></span><span id="conn" style="margin-left:auto">● connecting…</span><button id="env" style="display:none;position:relative;font-size:22px" onclick="event.stopPropagation();openReqs()" title="Mod requests">✉️<span id="envn"></span></button></header>
+<span id="me"></span><button id="inb" style="display:none;position:relative" onclick="event.stopPropagation();openInbox()">Inbox<span id="inbn"></span></button><span id="conn" style="margin-left:auto">● connecting…</span><button id="env" style="display:none;position:relative;font-size:22px" onclick="event.stopPropagation();openReqs()" title="Mod requests">✉️<span id="envn"></span></button></header>
 <main><div><div class="panel" id="game">
 <div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. <b>Guests lose their XP when they leave — sign up to keep it.</b> Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
 <div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="slife" style="font-size:2cqw"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
@@ -63,7 +63,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <div id="pollp" style="display:none"><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
 <div id="modp" style="display:none"><p><b>Staff tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button id="blb" onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
-<div id="ov"></div><button id="mrbtn" onclick="reqBtn()">📝 Mod request</button><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v9</div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
+<div id="ov"></div><div id="bl"><button id="mrbtn" onclick="reqBtn()">📝 Mod request</button><button id="idbtn" onclick="event.stopPropagation();ideaBtn()">💡 Update Ideas</button></div><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v10</div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
 const $=id=>document.getElementById(id);let isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -71,7 +71,7 @@ function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
 function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
  ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}};
- ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('env').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('env').style.display='none';$('inb').style.display='none';inUnread=0;$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
@@ -92,7 +92,7 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
+ if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('inb').style.display='';inbUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
@@ -108,6 +108,8 @@ function on(m){
   $('chain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
   $('vs').innerHTML=`${nm(you)} ${'❤️'.repeat(m.lives[m.you])} &nbsp; vs &nbsp; ${nm(m.opp)} ${'❤️'.repeat(m.lives[1-m.you])}`;
   $('alife').innerHTML=you&&you.owner?`<button onclick="addLife(${m.you})">+1 ❤️ me</button> <button onclick="addLife(${1-m.you})">+1 ❤️ opponent</button>`:'';$('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
+ if(m.t=='inbox'){if(m.list){renderInbox(m.list);inUnread=0}else inUnread=m.unread;inbUpdate();if(m.new)banner(m.new,'ann',6000)}
+ if(m.t=='ideas'){ideas=m.list;envUpdate();if(showReqs&&!$('menu').contains(document.activeElement))renderReqs()}
  if(m.t=='modreqs'){reqs=m.list;envUpdate();if(showReqs&&!$('menu').contains(document.activeElement))renderReqs()}
  if(m.t=='mymodreq')renderMyReq(m);
  if(m.t=='modnote')banner(m.text,'ann',8000);
@@ -152,8 +154,8 @@ setInterval(lbAsk,30000);
 function act(){const n=Date.now();if(n-lastAct<3000)return;lastAct=n;raw({t:'active'})}
 ['click','keydown','mousemove','touchstart','wheel','scroll'].forEach(e=>addEventListener(e,act,{passive:true}));
 document.addEventListener('visibilitychange',()=>{lastAct=0;raw({t:'vis',hidden:document.hidden})});
-let reqs=[],showReqs=false;
-function envUpdate(){const v=you&&(you.owner||you.rv||you.re);$('env').style.display=v?'':'none';const n=reqs.filter(r=>r.status=='pending').length;$('envn').innerHTML=n?`<span class="bdg">${n}</span>`:''}
+let reqs=[],showReqs=false,ideas=[],reqTab='req',inUnread=0;
+function envUpdate(){const v=you&&(you.owner||you.rv||you.re);$('env').style.display=v?'':'none';const n=reqs.filter(r=>r.status=='pending').length+(you&&you.owner?ideas.filter(i=>!i.handled).length:0);$('envn').innerHTML=n?`<span class="bdg">${n}</span>`:''}
 const ago=t=>{const s=(Date.now()-t)/1000;return s<60?'just now':s<3600?Math.floor(s/60)+'m ago':s<86400?Math.floor(s/3600)+'h ago':Math.floor(s/86400)+'d ago'};
 const replyHtml=r=>(r.replies||[]).map(x=>`<p style="background:#f0fdf4;padding:8px;border-radius:10px;margin:6px 0"><b>${esc(x.by)}:</b> ${esc(x.text)}</p>`).join('');
 function renderMyReq(m){showReqs=false;const r=m.req,mm=$('menu');mm.style.display='block';
@@ -161,12 +163,26 @@ function renderMyReq(m){showReqs=false;const r=m.req,mm=$('menu');mm.style.displ
  (r?`<p><b>Your latest request</b> <small>(${esc(r.status)})</small><br>${esc(r.reason)}</p>${replyHtml(r)}`:'')+
  (m.can?`<textarea id="mrr" maxlength="300" rows="4" placeholder="Why should you be a mod? (10+ characters)" style="width:100%;font-size:18px;border:2px solid #16a34a;border-radius:12px;padding:10px"></textarea><br><button class="go" onclick="sendReq()">Send request</button>`:`<p>${esc(m.why||'')}</p>`)}
 function sendReq(){send({t:'modreq',reason:$('mrr').value});closeMenu()}
-function openReqs(){showReqs=true;send({t:'modreqs'});renderReqs()}
+function openReqs(){showReqs=true;send({t:'modreqs'});if(you.owner)send({t:'ideas'});renderReqs()}
 function renderReqs(){const mm=$('menu'),own=you.owner||you.re;mm.style.display='block';
- const L=[...reqs].sort((a,b)=>(a.status=='pending'?0:1)-(b.status=='pending'?0:1)||b.at-a.at);
- mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">✉️ Mod requests</h3>`+
- (L.length?L.map(r=>`<div style="border:2px solid #d1fae5;border-radius:12px;padding:10px;margin:8px 0"><b>${esc(r.dn)}</b> <small>@${esc(r.name)} · ${ago(r.at)} · ${esc(r.status)}</small><p style="margin:6px 0">${esc(r.reason)}</p>${replyHtml(r)}`+
-  (own&&r.status=='pending'?`<div id="rb${r.id}"><button class="go" onclick="reqAct(${r.id},'accept')">Accept</button> <button class="no" onclick="reqAct(${r.id},'deny')">Deny</button> <button onclick="respBox(${r.id})">Respond</button></div>`:'')+`</div>`).join(''):'No requests yet.')}
+ const bx='border:2px solid #d1fae5;border-radius:12px;padding:10px;margin:8px 0';
+ const tabs=you.owner?`<div style="margin-bottom:8px"><button onclick="reqTab='req';renderReqs()" style="${reqTab=='req'?'background:#22c55e':''}">Mod requests</button> <button onclick="reqTab='idea';renderReqs()" style="${reqTab=='idea'?'background:#22c55e':''}">Update ideas</button></div>`:'';
+ let body;
+ if(reqTab=='idea'&&you.owner){const L=[...ideas].sort((a,b)=>(a.handled?1:0)-(b.handled?1:0)||b.at-a.at);
+  body=L.length?L.map(r=>`<div style="${bx}"><b>${esc(r.dn)}</b> <small>@${esc(r.name)} · ${ago(r.at)}${r.acked?' · acknowledged':''}</small><p style="margin:6px 0">${esc(r.text)}</p>${replyHtml(r)}<div id="ib${r.id}">${r.acked?'':`<button class="go" onclick="ideaAct(${r.id},'ack')">👍 Acknowledge</button> `}<button onclick="ideaResp(${r.id})">Respond</button></div></div>`).join(''):'No ideas yet.'}
+ else{const L=[...reqs].sort((a,b)=>(a.status=='pending'?0:1)-(b.status=='pending'?0:1)||b.at-a.at);
+  body=L.length?L.map(r=>`<div style="${bx}"><b>${esc(r.dn)}</b> <small>@${esc(r.name)} · ${ago(r.at)} · ${esc(r.status)}</small><p style="margin:6px 0">${esc(r.reason)}</p>${replyHtml(r)}`+
+   (own&&r.status=='pending'?`<div id="rb${r.id}"><button class="go" onclick="reqAct(${r.id},'accept')">Accept</button> <button class="no" onclick="reqAct(${r.id},'deny')">Deny</button> <button onclick="respBox(${r.id})">Respond</button></div>`:'')+`</div>`).join(''):'No requests yet.'}
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">✉️ ${reqTab=='idea'&&you.owner?'Update ideas':'Mod requests'}</h3>${tabs}${body}`}
+function ideaResp(id){$('ib'+id).innerHTML=`<input id="it${id}" maxlength="300" placeholder="Your response" style="width:100%;border:2px solid #16a34a"><button class="go" onclick="ideaAct(${id},'reply',$('it${id}').value)">Send</button> <button onclick="renderReqs()">Cancel</button>`;$('it'+id).focus()}
+function ideaAct(id,act,text){send({t:'ideaact',id,act,text})}
+const inbUpdate=()=>{$('inbn').innerHTML=inUnread?`<span class="bdg">${inUnread}</span>`:''};
+const openInbox=()=>send({t:'inbox'});
+function renderInbox(L){showReqs=false;const mm=$('menu');mm.style.display='block';
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">📬 Inbox</h3>`+(L.length?L.map(x=>`<div style="border-radius:12px;padding:10px;margin:8px 0;background:${x.read?'#f3f4f6':'#dcfce7'}"><small>${x.kind=='idea'?'Update idea':'Mod request'} · ${ago(x.at)}${x.read?'':' · new'}</small><p style="margin:4px 0">${esc(x.text)}</p></div>`).join(''):'Nothing here yet. Replies to your mod requests and update ideas show up here.')}
+function ideaBtn(){if(!you)return toast('Log in or pick a username first','warn');showReqs=false;const mm=$('menu');mm.style.display='block';
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">💡 Update Ideas</h3><p>Got an idea for ConnectChain? Tell us!</p><textarea id="idt" maxlength="300" rows="4" placeholder="My idea is... (10+ characters)" style="width:100%;font-size:18px;border:2px solid #16a34a;border-radius:12px;padding:10px"></textarea><br><button class="go" onclick="sendIdea()">Send idea</button>`;$('idt').focus()}
+function sendIdea(){send({t:'idea',text:$('idt').value});closeMenu()}
 function respBox(id){$('rb'+id).innerHTML=`<input id="rt${id}" maxlength="300" placeholder="Your response" style="width:100%;border:2px solid #16a34a"><button class="go" onclick="reqAct(${id},'reply',$('rt${id}').value)">Send</button> <button onclick="renderReqs()">Cancel</button>`;$('rt'+id).focus()}
 function reqAct(id,act,text){send({t:'modact',id,act,text})}
 const reqBtn=()=>{if(!you)return toast('Log in or pick a username first','warn');send({t:'mymodreq'})};
@@ -197,6 +213,6 @@ function saveTag(rm){if(tagTo=='__me')send({t:'ownertag',c1:tagSel[0],c2:tagSel[
 function openNameEdit(){const m=$('menu');m.style.display='block';
  m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">Edit display name</h3><p>Your username <b>${esc(you.name)}</b> stays the same. This only changes the name other people see.</p><input id="dnm" maxlength="20" value="${esc(you.dn||you.name)}" style="width:100%" onkeydown="if(event.key=='Enter')saveName()"><p><button class="go" onclick="saveName()">Save</button> <button onclick="saveName(true)">Reset to username</button></p>`;$('dnm').focus()}
 function saveName(r){send({t:'setdisplay',text:r?'':$('dnm').value});closeMenu()}
-document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target)&&!e.target.closest('#env,#mrbtn'))closeMenu();return}
+document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target)&&!e.target.closest('#env,#mrbtn,#idbtn,#inb'))closeMenu();return}
  const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner||you.mod)openMenu(n)};
 </script></body></html>
