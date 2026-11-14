@@ -15,14 +15,14 @@ const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
-function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c)}
+function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
 function logout(c){if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
@@ -65,6 +65,12 @@ let tk=0;setInterval(()=>{const now=Date.now();let ch=false;for(const c of onlin
  if(!c.inact&&((c.hiddenSince&&now-c.hiddenSince>HID)||(now-c.lastAct>IDLE&&!c.bt&&!c.watch))){c.inact=true;ch=true}
  if(c.u&&c.acct&&!c.inact)c.u.secs=(c.u.secs||0)+TICK/1000}
  if(ch)lobby();if(++tk%8==0)save()},TICK);
+const canView=c=>c.u&&c.acct&&(c.u.owner||c.u.reqview);
+const reqOf=n=>[...db.modreqs].reverse().find(r=>r.name.toLowerCase()==String(n).toLowerCase());
+const reqList=()=>db.modreqs.slice(-100).map(r=>({id:r.id,name:r.name,dn:dn(db.users[r.name]||{name:r.name}),reason:r.reason,at:r.at,status:r.status,replies:r.replies}));
+const pushReqs=()=>{const l=reqList();for(const x of online.values())if(canView(x))send(x,{t:'modreqs',list:l})};
+function note(r,text,kind){const c=find(r.name);if(c)send(c,{t:'modnote',kind,text});else(r.notes=r.notes||[]).push({kind,text})}
+function onLogin(c){const r=reqOf(c.u.name);if(r&&r.notes&&r.notes.length){r.notes.forEach(n=>send(c,{t:'modnote',...n}));r.notes=[];save()}if(canView(c))send(c,{t:'modreqs',list:reqList()})}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -110,6 +116,22 @@ const handlers={
  unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
  setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ mymodreq(c){if(!c.acct)return flash(c,'Sign up for an account first to request mod','bad');const r=reqOf(c.u.name);let can=true,why='';
+  if(c.u.mod||c.u.owner){can=false;why='You already have mod powers.'}
+  else if(r&&r.status=='pending'){can=false;why='Your request is waiting for a decision.'}
+  else if(r&&r.status=='denied'&&Date.now()-r.decidedAt<36e5){can=false;why='Your last request was denied. You can ask again in about '+Math.ceil((36e5-(Date.now()-r.decidedAt))/6e4)+' minutes.'}
+  send(c,{t:'mymodreq',req:r?{reason:r.reason,status:r.status,replies:r.replies}:null,can,why})},
+ modreq(c,m){if(!c.acct)return flash(c,'Sign up for an account first to request mod','bad');const reason=String(m.reason||'').trim().slice(0,300);
+  if(reason.length<10)return flash(c,'Please write at least 10 characters explaining why','bad');if(filter.check(reason))return flash(c,'Please keep it clean','bad');
+  const r=reqOf(c.u.name);if(c.u.owner||c.u.mod||(r&&r.status=='pending')||(r&&r.status=='denied'&&Date.now()-r.decidedAt<36e5))return;
+  db.modreqs.push({id:Date.now()*1000+Math.floor(Math.random()*1000),name:c.u.name,reason,at:Date.now(),status:'pending',replies:[]});if(db.modreqs.length>300)db.modreqs=db.modreqs.slice(-300);save();pushReqs();flash(c,'Request sent! The owner will see it.','ok')},
+ modreqs(c){if(canView(c))send(c,{t:'modreqs',list:reqList()})},
+ modact(c,m){if(!c.u?.owner||!c.acct)return;const r=db.modreqs.find(x=>x.id===m.id);if(!r||r.status!=='pending')return;const act=m.act,txt=String(m.text||'').trim().slice(0,300);
+  if(act==='accept'){const u=db.users[r.name];if(!u||u.owner)return;u.mod=true;r.status='accepted';r.decidedAt=Date.now();const t=find(r.name);if(t)send(t,{t:'me',me:me(t)});note(r,'✅ Your mod request was accepted. You now have Mod powers!','accepted')}
+  else if(act==='deny'){r.status='denied';r.decidedAt=Date.now();note(r,'❌ Your mod request was denied.','denied')}
+  else if(act==='reply'&&txt){r.replies.push({by:dn(c.u),text:txt,at:Date.now()});note(r,'📩 '+dn(c.u)+': '+txt,'reply')}
+  else return;save();pushReqs();lobby()},
+ setreqview(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqview=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});onLogin(t.c)}lobby()},
  setalpha(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.alpha=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  scare(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to),i=m.img;if(!t||!t.c||t.u.owner)return;if(typeof i!=='string'||i.length>400000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(i))return;send(t.c,{t:'scare',img:i})},
  addlife(c,m){if(!c.u?.owner||!c.acct)return;const bt=c.bt||c.watch;if(!bt||!bt.live)return;const i=m.i===1?1:0;bt.lives[i]=Math.min(10,bt.lives[i]+1);push(bt)},
@@ -133,5 +155,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
