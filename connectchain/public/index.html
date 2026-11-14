@@ -54,6 +54,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
 <div><div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
+<div class="panel" id="lbp" style="display:none"><h2 style="margin-top:0">🏆 Leaderboard</h2><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
 <div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button><hr><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
@@ -88,12 +89,12 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('own').style.display=you.owner?'':'none';$('modp').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
+ if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();$('own').style.display=you.owner?'':'none';$('modp').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
  if(m.t=='token')localStorage.cctk=m.tk;
- if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small></span>${you&&u.name!=you.name?(u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
+ if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small>${u.away?' <small style="color:#6b7280">(Not Active)</small>':''}</span>${you&&u.name!=you.name?(u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
  if(m.t=='flash')toast(m.text,m.kind);
  if(m.t=='challenge')showReq(m.from,m.dn);
  if(m.t=='chalgone'&&$('req').dataset.from==m.from)hideReq();
@@ -104,6 +105,7 @@ function on(m){
   $('chain').innerHTML=m.chain.map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
   $('vs').innerHTML=`${nm(you)} ${'❤️'.repeat(m.lives[m.you])} &nbsp; vs &nbsp; ${nm(m.opp)} ${'❤️'.repeat(m.lives[1-m.you])}`;
   $('alife').innerHTML=you&&you.owner?`<button onclick="addLife(${m.you})">+1 ❤️ me</button> <button onclick="addLife(${1-m.you})">+1 ❤️ opponent</button>`:'';$('turn').textContent=myTurn?'YOUR TURN — type a word that connects!':'Their turn…';$('opp').textContent='';if(myTurn)$('word').focus()}
+ if(m.t=='lb'){lbData=m;lbRender()}
  if(m.t=='poll')showPoll(m.poll,m.mine);
  if(m.t=='announce')banner('📢 '+m.from+': '+m.text,'ann',5000);
  if(m.t=='warned')banner('⚠️ Warning from '+m.by+' (#'+m.count+'): '+m.text,'wrn',8000);
@@ -133,6 +135,17 @@ function renderPoll(){const p=poll,b=$('pollbox'),done=p.done||Date.now()>pollEn
 function closePoll(){pollHidden=poll?poll.id:0;$('pollbox').style.display='none';clearInterval(pollIv)}
 function castVote(i){if(!poll)return;send({t:'vote',id:poll.id,i});mine=i;renderPoll()}
 function startPoll(){send({t:'startpoll',q:$('pq').value,opts:[...document.querySelectorAll('.pop')].map(x=>x.value),secs:+$('ps').value});toast('Poll sent to everyone','ok')}
+let lbData=null,lbTab='day',lbAt=0,lastAct=0;
+const LBT=[['day','Today'],['week','This Week'],['month','This Month'],['all','All Time'],['time','Time']];
+const fmtT=s=>{const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+'h '+m+'m':m+'m'};
+const raw=o=>{if(ws&&ws.readyState==1&&you)ws.send(JSON.stringify(o))};
+function lbRender(){$('lbt').innerHTML=LBT.map(([k,l])=>`<button onclick="lbTab='${k}';lbRender();lbAsk()" style="margin:2px;font-size:15px;padding:6px 10px;${k==lbTab?'background:#22c55e':''}">${l}</button>`).join('');
+ const L=lbData?lbData[lbTab]:[];$('lbl').innerHTML=L.length?L.map((u,i)=>`<div class="row"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${nm(u)}</span><b>${lbTab=='time'?fmtT(u.v):(lbTab=='all'?'':'+')+u.v+' XP'}</b></div>`).join(''):'<small>Nobody yet. Play to get on the board!</small>'}
+function lbAsk(){const n=Date.now();if(n-lbAt>8000){lbAt=n;raw({t:'lb'})}if(!$('lbt').innerHTML)lbRender()}
+setInterval(lbAsk,30000);
+function act(){const n=Date.now();if(n-lastAct<3000)return;lastAct=n;raw({t:'active'})}
+['click','keydown','mousemove','touchstart','wheel','scroll'].forEach(e=>addEventListener(e,act,{passive:true}));
+document.addEventListener('visibilitychange',()=>{lastAct=0;raw({t:'vis',hidden:document.hidden})});
 function banner(t,cls,ms){const b=$('banner');b.textContent=t;b.className=cls;b.style.display='block';clearTimeout(bT);bT=setTimeout(()=>b.style.display='none',ms)}
 function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{},own=you.owner;
  tagSel=me?[ot.c1,ot.c2]:[cur.tc1||'#dddddd',cur.tc2||'#aaaaaa'];
