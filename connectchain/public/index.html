@@ -63,7 +63,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <div id="pollp" style="display:none"><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
 <div id="modp" style="display:none"><p><b>Staff tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button id="blb" onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
-<div id="ov"></div><button id="mrbtn" style="display:none" onclick="send({t:'mymodreq'})">📝 Mod request</button><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
+<div id="ov"></div><button id="mrbtn" onclick="reqBtn()">📝 Mod request</button><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v9</div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
 const $=id=>document.getElementById(id);let isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -71,7 +71,7 @@ function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
 function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
  ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}};
- ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('mrbtn').style.display='none';$('env').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('env').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
@@ -92,7 +92,7 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('mrbtn').style.display=!you.owner?'':'none';$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
+ if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
@@ -169,6 +169,7 @@ function renderReqs(){const mm=$('menu'),own=you.owner||you.re;mm.style.display=
   (own&&r.status=='pending'?`<div id="rb${r.id}"><button class="go" onclick="reqAct(${r.id},'accept')">Accept</button> <button class="no" onclick="reqAct(${r.id},'deny')">Deny</button> <button onclick="respBox(${r.id})">Respond</button></div>`:'')+`</div>`).join(''):'No requests yet.')}
 function respBox(id){$('rb'+id).innerHTML=`<input id="rt${id}" maxlength="300" placeholder="Your response" style="width:100%;border:2px solid #16a34a"><button class="go" onclick="reqAct(${id},'reply',$('rt${id}').value)">Send</button> <button onclick="renderReqs()">Cancel</button>`;$('rt'+id).focus()}
 function reqAct(id,act,text){send({t:'modact',id,act,text})}
+const reqBtn=()=>{if(!you)return toast('Log in or pick a username first','warn');send({t:'mymodreq'})};
 function banner(t,cls,ms){const b=$('banner');b.textContent=t;b.className=cls;b.style.display='block';clearTimeout(bT);bT=setTimeout(()=>b.style.display='none',ms)}
 function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{},own=you.owner;
  tagSel=me?[ot.c1,ot.c2]:[cur.tc1||'#dddddd',cur.tc2||'#aaaaaa'];
