@@ -99,11 +99,14 @@ const addEnd=(e,n)=>{e.xp=Math.min(ENDCAP,e.xp+n)};
 function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);
  if(notify)send(c,{t:'endover',words:e.words,best:e.best,xp:amt,mult:c.u.mult,capped:e.xp>=ENDCAP});lobby()}
 const STOP=new Set('the and has have had was were are been being not but for with from that this these those you your they them their its his her our out about into over than then just also very too more most some any all each every other such only own same what which who whom when where why how there here can will would should could may might must does did get got let say said'.split(' '));
-const dmn=async(q,max)=>{const k='n|'+q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?md=p&max='+max+'&'+q);const j=(await r.json()).filter(x=>x.tags&&x.tags.some(t=>t=='n'||t=='adj')).map(x=>x.word);cache.set(k,j);return j}catch{return[]}};
+const dmn=async(q,max)=>{const k='n|'+q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?md=p&max='+max+'&'+q);const j=(await r.json()).filter(x=>x.tags&&x.tags.some(t=>t=='n')).map(x=>x.word);cache.set(k,j);return j}catch{return[]}};
 async function botMove(c){const e=c.end;if(!e)return;const last=e.chain.at(-1);let pick=null;
- const pool=[...new Set([...(await dmn('rel_trg='+last,60)),...(await dmn('ml='+last,40))])].filter(w=>/^[a-z]{3,12}$/.test(w)&&!STOP.has(w)&&w!==last&&!e.chain.includes(w)&&!filter.check(w));
+ const okw=w=>/^[a-z]{3,12}$/.test(w)&&!STOP.has(w)&&!e.chain.includes(w)&&!w.startsWith(last)&&!last.startsWith(w)&&!filter.check(w);
+ const pool=(await dmn('rel_trg='+last,25)).filter(okw).slice(0,14);
  for(let i=pool.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[pool[i],pool[j]]=[pool[j],pool[i]]}
- for(const w of pool.slice(0,4)){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
+ const strong=[];for(const w of pool){if(strong.length>=4)break;if((await dmn('rel_trg='+w,150)).includes(last))strong.push(w)}
+ for(const w of strong){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
+ if(!pick&&KEY)for(const w of pool.filter(x=>!strong.includes(x)).slice(0,3)){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
  if(c.end!==e)return;
  if(!pick){addEnd(e,ENDBONUS);e.chain=[startWord()];e.streak=0;e.turn='you';return esend(c,'🤖 The bot is stumped and could not find a word! +'+ENDBONUS+' bonus XP. New word!')}
  e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
