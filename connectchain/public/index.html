@@ -54,11 +54,12 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
 <div><div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
-<div class="panel" id="lbp" style="display:none"><h3 style="margin-top:0">🏆 Leaderboard XP/Time</h3><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
+<div class="panel" id="lbp" style="display:none"><h2 style="margin-top:0">🏆 Leaderboard</h2><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
-<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button><hr><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
-<div id="modp" style="display:none"><p><b>Mod tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
+<div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button></div>
+<div id="pollp" style="display:none"><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
+<div id="modp" style="display:none"><p><b>Staff tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button id="blb" onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
 <div id="ov"></div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
@@ -89,7 +90,7 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();$('own').style.display=you.owner?'':'none';$('modp').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
+ if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display=you.owner?'none':'';
   $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=colors.filter(c=>you.xp>=c[1]).map(c=>`<option ${c[0]==you.color?'selected':''}>${c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
@@ -130,7 +131,7 @@ function showPoll(p,mi){poll=p;mine=mi;pollEnd=Date.now()+p.ms;if(p.id==pollHidd
 function tickPoll(){const e=$('ptime');if(!e||!poll)return;const l=Math.max(0,Math.ceil((pollEnd-Date.now())/1000));e.textContent=l+'s left'}
 function renderPoll(){const p=poll,b=$('pollbox'),done=p.done||Date.now()>pollEnd+1500,pc=i=>p.total?Math.round(p.counts[i]*100/p.total):0;b.style.display='block';
  b.innerHTML=`<div style="text-align:right"><button class="no" onclick="closePoll()">✕</button></div><h2 style="margin:0 0 6px">📊 ${esc(p.q)}</h2><small>${done?'Final results':'Poll by '+esc(p.by)+' · <span id="ptime"></span>'} · ${p.total} vote${p.total==1?'':'s'}</small>`+
- p.opts.map((o,i)=>`<button class="po${mine===i?' me':''}" ${done?'disabled':''} onclick="castVote(${i})"><i style="width:${pc(i)}%"></i><span>${esc(o)} — ${p.counts[i]} (${pc(i)}%)</span></button>`).join('')+(you&&you.owner&&!done?`<button class="no" onclick="send({t:'endpoll'})">End poll now</button>`:'');
+ p.opts.map((o,i)=>`<button class="po${mine===i?' me':''}" ${done?'disabled':''} onclick="castVote(${i})"><i style="width:${pc(i)}%"></i><span>${esc(o)} — ${p.counts[i]} (${pc(i)}%)</span></button>`).join('')+(you&&(you.owner||you.mod||you.alpha)&&!done?`<button class="no" onclick="send({t:'endpoll'})">End poll now</button>`:'');
  if(done)clearInterval(pollIv);else tickPoll()}
 function closePoll(){pollHidden=poll?poll.id:0;$('pollbox').style.display='none';clearInterval(pollIv)}
 function castVote(i){if(!poll)return;send({t:'vote',id:poll.id,i});mine=i;renderPoll()}
@@ -150,14 +151,15 @@ function banner(t,cls,ms){const b=$('banner');b.textContent=t;b.className=cls;b.
 function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)||{},own=you.owner;
  tagSel=me?[ot.c1,ot.c2]:[cur.tc1||'#dddddd',cur.tc2||'#aaaaaa'];
  const m=$('menu');m.style.display='block';
- let h=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">${me?'My owner tag':esc(cur.dn||n)}${cur.mod?' 🛡️':''}</h3>`;
+ let h=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">${me?'My owner tag':esc(cur.dn||n)}${cur.mod?' 🛡️':''}${cur.alpha?' (Alpha)':''}</h3>`;
  if(own){h+=(me?'':`Tag text: <input id="tg" maxlength="16" value="${esc(cur.tag||'')}" oninput="prev()"><br>`)+
   `<p>Color 1:<br>${swRow(0)}</p><p>Color 2:<br>${swRow(1)}</p><p>Preview: <span id="pv" class="tag" style="font-size:18px"></span></p><button class="go" onclick="saveTag()">Save tag</button> `+
   (me?'':`<button class="no" onclick="saveTag(true)">Remove tag</button><hr>XP: <input id="gx" type="number" value="100" style="width:110px"> <button onclick="send({t:'grant',to:'${esc(n)}',xp:gx.value})">Grant XP</button>`);
-  if(!me&&!cur.owner)h+=`<hr><b>Mod Powers</b><br>${cur.mod?`<button class="no" onclick="setMod('${esc(n)}',false)">Revoke Mod</button>`:`<button class="go" onclick="setMod('${esc(n)}',true)">Grant Mod</button>`}`}
+  if(!me&&!cur.owner)h+=`<hr><b>Mod Powers</b><br>${cur.mod?`<button class="no" onclick="setMod('${esc(n)}',false)">Revoke Mod</button>`:`<button class="go" onclick="setMod('${esc(n)}',true)">Grant Mod</button>`}<br><br><b>Alpha Powers</b> <small>(global messages + polls)</small><br>${cur.alpha?`<button class="no" onclick="setAlpha('${esc(n)}',false)">Revoke Alpha</button>`:`<button class="go" onclick="setAlpha('${esc(n)}',true)">Grant Alpha</button>`}`}
  if(!me&&!cur.owner&&(own||!cur.mod))h+=`<hr><b>Moderation</b><br><input id="wtxt" maxlength="100" placeholder="warning message" style="width:100%"><button onclick="doWarn('${esc(n)}')">⚠️ Warn</button><br><br>Ban: <input id="bn" type="number" value="10" min="1" style="width:80px"> <select id="bu"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option><option value="0">forever</option></select><br><input id="br" maxlength="80" placeholder="reason (optional)" style="width:100%"><button class="no" onclick="doBan('${esc(n)}')">🔨 Ban</button>`;
  if(own&&!me&&!cur.owner)h+=`<hr><b>Owner tricks</b><br><input type="file" id="sf" accept="image/*" onchange="loadScare(this)"><span id="sst">${localStorage.scareImg?' (saved image ready)':''}</span><br><button onclick="doScare('${esc(n)}')">👻 Jumpscare (1 second)</button>`;
  m.innerHTML=h;if(own)prev()}
+const setAlpha=(n,on)=>{send({t:'setalpha',to:n,on});closeMenu()};
 const setMod=(n,on)=>{send({t:'setmod',to:n,on});closeMenu()};
 const doWarn=n=>{send({t:'warn',to:n,text:$('wtxt').value});toast('Warning sent','ok');closeMenu()};
 const doBan=n=>{const v=+$('bn').value,u=+$('bu').value;send({t:'ban',to:n,mins:u?Math.max(1,v)*u:0,reason:$('br').value});closeMenu()};
