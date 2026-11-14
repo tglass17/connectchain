@@ -203,7 +203,10 @@ const handlers={
  setreqedit(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqedit=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canView(t.c))send(t.c,{t:'modreqs',list:reqList()})}lobby()},
  setreqview(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqview=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canView(t.c))send(t.c,{t:'modreqs',list:reqList()})}lobby()},
  setalpha(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.alpha=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
- scare(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to),i=m.img;if(!t||!t.c||t.u.owner)return;if(typeof i!=='string'||i.length>400000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(i))return;send(t.c,{t:'scare',img:i})},
+ scare(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!t.c||t.c===c)return;
+  if(t.u.owner){if(!c.u.owner)send(c,{t:'selfdestruct'});return}
+  const i=m.img;if(typeof i!=='string'||i.length>400000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(i))return;
+  if(!c.u.owner&&Date.now()-(c.lastScare||0)<10000)return flash(c,'Wait a few seconds before another jumpscare','warn');c.lastScare=Date.now();send(t.c,{t:'scare',img:i})},
  addlife(c,m){if(!c.u?.owner||!c.acct)return;const bt=c.bt||c.watch;if(!bt||!bt.live)return;const i=m.i===1?1:0;bt.lives[i]=Math.min(10,bt.lives[i]+1);push(bt)},
  startpoll(c,m){if(!canAnn(c))return;const q=String(m.q||'').trim().slice(0,120),o=(Array.isArray(m.opts)?m.opts:[]).map(x=>String(x||'').trim().slice(0,40)).filter(Boolean).slice(0,4);
   if(!q||o.length<2)return flash(c,'A poll needs a question and at least 2 options','bad');
