@@ -204,7 +204,7 @@ function endBack(){$('endless').style.display='none';$('welcome').style.display=
 function endRender(m){['welcome','arena','spectate'].forEach(i=>$(i).style.display='none');$('endless').style.display='';$('endback').style.display='none';
  $('enchain').innerHTML=m.chain.slice(-6).map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
  $('enst').textContent='Words: '+m.words+' · Streak: '+m.streak;$('enmsg').textContent=m.msg||'';
- const mine=m.turn=='you';$('enw').disabled=!mine;$('enw').placeholder=mine?'your word...':'🤖 bot is thinking...';if(mine)$('enw').focus()}
+ const mine=m.turn=='you';$('enw').disabled=!mine;$('enw').placeholder=mine?'your word...':'🤖 bot is thinking hard...';if(mine)$('enw').focus()}
 function endOver(m){$('enw').disabled=true;$('enw').value='';$('endback').style.display='';
  $('enmsg').textContent='🏁 Endless Mode over! Words: '+m.words+' · Best streak: '+m.best+' · XP earned: '+(you&&you.owner?'∞ (owner)':'+'+m.xp+(m.mult>1?' (x'+m.mult+')':''))+(m.capped?' · run cap reached':'')}
 $('enw').onkeydown=e=>{if(e.key=='Enter')endSub()};
