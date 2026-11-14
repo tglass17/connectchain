@@ -59,7 +59,7 @@ const TZ=process.env.TZ_NAME||'America/New_York',IDLE=+process.env.IDLE_MS||33*6
 const ymd=()=>new Date().toLocaleDateString('en-CA',{timeZone:TZ});
 function wk(d){const t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-(t.getUTCDay()+6)%7);return t.toISOString().slice(0,10)}
 function roll(u){const d=ymd(),w=wk(d),m=d.slice(0,7),g=u.g=u.g||{d,dx:0,w,wx:0,m,mx:0};if(g.d!==d){g.d=d;g.dx=0}if(g.w!==w){g.w=w;g.wx=0}if(g.m!==m){g.m=m;g.mx=0}return g}
-const gain=(u,n)=>{if(!(n>0)||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx+=n;g.wx+=n;g.mx+=n};
+const gain=(u,n)=>{if(!n||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx=Math.max(0,g.dx+n);g.wx=Math.max(0,g.wx+n);g.mx=Math.max(0,g.mx+n)};
 function lbData(){const us=Object.values(db.users),top=f=>us.map(u=>({u,v:f(u)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...pub(x.u),v:Math.round(x.v)}));
  return{day:top(u=>u.owner?0:roll(u).dx),week:top(u=>u.owner?0:roll(u).wx),month:top(u=>u.owner?0:roll(u).mx),all:top(u=>u.owner?0:u.xp),time:top(u=>u.secs||0)}}
 let tk=0;setInterval(()=>{const now=Date.now();let ch=false;for(const c of online.values()){if(!c.lastAct)c.lastAct=now;
@@ -98,10 +98,14 @@ const esend=(c,msg)=>{const e=c.end;send(c,{t:'end',chain:e.chain,words:e.words,
 const addEnd=(e,n)=>{e.xp=Math.min(ENDCAP,e.xp+n)};
 function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);
  if(notify)send(c,{t:'endover',words:e.words,best:e.best,xp:amt,mult:c.u.mult,capped:e.xp>=ENDCAP});lobby()}
-async function botMove(c){const e=c.end;if(!e)return;let pick=null;
- if(Math.random()>0.2){const last=e.chain.at(-1);const pool=[...(await dm('rel_trg='+last,40)),...(await dm('rel_bga='+last,40))].filter(w=>/^[a-z]{3,12}$/.test(w)&&!e.chain.includes(w)&&!filter.check(w));if(pool.length)pick=pool[Math.random()*pool.length|0]}
+const STOP=new Set('the and has have had was were are been being not but for with from that this these those you your they them their its his her our out about into over than then just also very too more most some any all each every other such only own same what which who whom when where why how there here can will would should could may might must does did get got let say said'.split(' '));
+const dmn=async(q,max)=>{const k='n|'+q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?md=p&max='+max+'&'+q);const j=(await r.json()).filter(x=>x.tags&&x.tags.some(t=>t=='n'||t=='adj')).map(x=>x.word);cache.set(k,j);return j}catch{return[]}};
+async function botMove(c){const e=c.end;if(!e)return;const last=e.chain.at(-1);let pick=null;
+ const pool=[...new Set([...(await dmn('rel_trg='+last,60)),...(await dmn('ml='+last,40))])].filter(w=>/^[a-z]{3,12}$/.test(w)&&!STOP.has(w)&&w!==last&&!e.chain.includes(w)&&!filter.check(w));
+ for(let i=pool.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[pool[i],pool[j]]=[pool[j],pool[i]]}
+ for(const w of pool.slice(0,4)){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
  if(c.end!==e)return;
- if(!pick){addEnd(e,ENDBONUS);e.chain=[startWord()];e.streak=0;e.turn='you';return esend(c,'🤖 The bot blanked and made a mistake! +'+ENDBONUS+' bonus XP. New word!')}
+ if(!pick){addEnd(e,ENDBONUS);e.chain=[startWord()];e.streak=0;e.turn='you';return esend(c,'🤖 The bot is stumped and could not find a word! +'+ENDBONUS+' bonus XP. New word!')}
  e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
 const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canAnn=c=>c.u&&c.acct&&(c.u.owner||c.u.mod||c.u.alpha);
@@ -206,7 +210,7 @@ const handlers={
  active(c){c.lastAct=Date.now();if(c.inact){c.inact=false;lobby()}},
  vis(c,m){c.hiddenSince=m.hidden?Date.now():0},
  lb(c){if(Date.now()-(c.lbAt||0)<3000)return;c.lbAt=Date.now();send(c,{t:'lb',...lbData()})},
- grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);gain(t.u,n);t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);gain(t.u,n);{const k=COLORS.find(x=>x[0]==t.u.color);if(k&&!t.u.owner&&t.u.xp<k[1])t.u.color='white'}t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
