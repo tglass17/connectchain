@@ -15,7 +15,7 @@ const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
@@ -65,7 +65,8 @@ let tk=0;setInterval(()=>{const now=Date.now();let ch=false;for(const c of onlin
  if(!c.inact&&((c.hiddenSince&&now-c.hiddenSince>HID)||(now-c.lastAct>IDLE&&!c.bt&&!c.watch))){c.inact=true;ch=true}
  if(c.u&&c.acct&&!c.inact)c.u.secs=(c.u.secs||0)+TICK/1000}
  if(ch)lobby();if(++tk%8==0)save()},TICK);
-const canView=c=>c.u&&c.acct&&(c.u.owner||c.u.reqview);
+const canView=c=>c.u&&c.acct&&(c.u.owner||c.u.reqview||c.u.reqedit);
+const canEdit=c=>c.u&&c.acct&&(c.u.owner||c.u.reqedit);
 const reqOf=n=>[...db.modreqs].reverse().find(r=>r.name.toLowerCase()==String(n).toLowerCase());
 const reqList=()=>db.modreqs.slice(-100).map(r=>({id:r.id,name:r.name,dn:dn(db.users[r.name]||{name:r.name}),reason:r.reason,at:r.at,status:r.status,replies:r.replies}));
 const pushReqs=()=>{const l=reqList();for(const x of online.values())if(canView(x))send(x,{t:'modreqs',list:l})};
@@ -126,11 +127,12 @@ const handlers={
   const r=reqOf(c.u.name);if(c.u.owner||c.u.mod||(r&&r.status=='pending')||(r&&r.status=='denied'&&Date.now()-r.decidedAt<36e5))return;
   db.modreqs.push({id:Date.now()*1000+Math.floor(Math.random()*1000),name:c.u.name,reason,at:Date.now(),status:'pending',replies:[]});if(db.modreqs.length>300)db.modreqs=db.modreqs.slice(-300);save();pushReqs();flash(c,'Request sent! The owner will see it.','ok')},
  modreqs(c){if(canView(c))send(c,{t:'modreqs',list:reqList()})},
- modact(c,m){if(!c.u?.owner||!c.acct)return;const r=db.modreqs.find(x=>x.id===m.id);if(!r||r.status!=='pending')return;const act=m.act,txt=String(m.text||'').trim().slice(0,300);
+ modact(c,m){if(!canEdit(c))return;const r=db.modreqs.find(x=>x.id===m.id);if(!r||r.status!=='pending')return;const act=m.act,txt=String(m.text||'').trim().slice(0,300);
   if(act==='accept'){const u=db.users[r.name];if(!u||u.owner)return;u.mod=true;r.status='accepted';r.decidedAt=Date.now();const t=find(r.name);if(t)send(t,{t:'me',me:me(t)});note(r,'✅ Your mod request was accepted. You now have Mod powers!','accepted')}
   else if(act==='deny'){r.status='denied';r.decidedAt=Date.now();note(r,'❌ Your mod request was denied.','denied')}
   else if(act==='reply'&&txt){r.replies.push({by:dn(c.u),text:txt,at:Date.now()});note(r,'📩 '+dn(c.u)+': '+txt,'reply')}
   else return;save();pushReqs();lobby()},
+ setreqedit(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqedit=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});onLogin(t.c)}lobby()},
  setreqview(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqview=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});onLogin(t.c)}lobby()},
  setalpha(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.alpha=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  scare(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to),i=m.img;if(!t||!t.c||t.u.owner)return;if(typeof i!=='string'||i.length>400000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(i))return;send(t.c,{t:'scare',img:i})},
