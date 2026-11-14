@@ -63,7 +63,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 <div id="pollp" style="display:none"><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
 <div id="modp" style="display:none"><p><b>Staff tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button id="blb" onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
-<div id="ov"></div><div id="bl"><button id="mrbtn" onclick="reqBtn()">📝 Mod request</button><button id="idbtn" onclick="event.stopPropagation();ideaBtn()">💡 Update Ideas</button></div><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v10</div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
+<div id="ov"></div><div id="bl"><button id="mrbtn" onclick="reqBtn()">📝 Mod request</button><button id="idbtn" onclick="event.stopPropagation();ideaBtn()">💡 Update Ideas</button></div><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v11</div><div id="banner"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
 const $=id=>document.getElementById(id);let isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -152,7 +152,7 @@ function lbRender(){$('lbt').innerHTML=LBT.map(([k,l])=>`<button onclick="lbTab=
 function lbAsk(){const n=Date.now();if(n-lbAt>8000){lbAt=n;raw({t:'lb'})}if(!$('lbt').innerHTML)lbRender()}
 setInterval(lbAsk,30000);
 function act(){const n=Date.now();if(n-lastAct<3000)return;lastAct=n;raw({t:'active'})}
-['click','keydown','mousemove','touchstart','wheel','scroll'].forEach(e=>addEventListener(e,act,{passive:true}));
+['click','keydown','mousemove','touchstart','wheel','scroll'].forEach(e=>addEventListener(e,act,{passive:true,capture:true}));
 document.addEventListener('visibilitychange',()=>{lastAct=0;raw({t:'vis',hidden:document.hidden})});
 let reqs=[],showReqs=false,ideas=[],reqTab='req',inUnread=0;
 function envUpdate(){const v=you&&(you.owner||you.rv||you.re);$('env').style.display=v?'':'none';const n=reqs.filter(r=>r.status=='pending').length+(you&&you.owner?ideas.filter(i=>!i.handled).length:0);$('envn').innerHTML=n?`<span class="bdg">${n}</span>`:''}
@@ -215,4 +215,5 @@ function openNameEdit(){const m=$('menu');m.style.display='block';
 function saveName(r){send({t:'setdisplay',text:r?'':$('dnm').value});closeMenu()}
 document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target)&&!e.target.closest('#env,#mrbtn,#idbtn,#inb'))closeMenu();return}
  const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner||you.mod)openMenu(n)};
+$('menu').addEventListener('click',e=>e.stopPropagation());
 </script></body></html>
