@@ -70,8 +70,13 @@ const canEdit=c=>c.u&&c.acct&&(c.u.owner||c.u.reqedit);
 const reqOf=n=>[...db.modreqs].reverse().find(r=>r.name.toLowerCase()==String(n).toLowerCase());
 const reqList=()=>db.modreqs.slice(-100).map(r=>({id:r.id,name:r.name,dn:dn(db.users[r.name]||{name:r.name}),reason:r.reason,at:r.at,status:r.status,replies:r.replies}));
 const pushReqs=()=>{const l=reqList();for(const x of online.values())if(canView(x))send(x,{t:'modreqs',list:l})};
-function note(r,text,kind){const c=find(r.name);if(c)send(c,{t:'modnote',kind,text});else(r.notes=r.notes||[]).push({kind,text})}
-function onLogin(c){const r=reqOf(c.u.name);if(r&&r.notes&&r.notes.length){r.notes.forEach(n=>send(c,{t:'modnote',...n}));r.notes=[];save()}if(canView(c))send(c,{t:'modreqs',list:reqList()})}
+const ideaList=()=>db.ideas.slice(-100).map(r=>({id:r.id,name:r.name,dn:r.dn,text:r.text,at:r.at,acked:r.acked,handled:r.handled,replies:r.replies}));
+const pushIdeas=()=>{for(const x of online.values())if(x.u&&x.acct&&x.u.owner)send(x,{t:'ideas',list:ideaList()})};
+function inboxAdd(name,acct,item){const c=find(name);let u=null;if(c&&c.acct===acct)u=c.u;else if(acct)u=db.users[name];if(!u)return;
+ const inb=u.inbox=u.inbox||[];inb.push({id:Date.now()*1000+Math.floor(Math.random()*1000),read:false,at:Date.now(),...item});if(inb.length>50)inb.splice(0,inb.length-50);
+ if(acct)save();if(c&&c.acct===acct)send(c,{t:'inbox',unread:inb.filter(x=>!x.read).length,new:item.text})}
+function note(r,text){inboxAdd(r.name,true,{kind:'modreq',text})}
+function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()})}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -117,6 +122,16 @@ const handlers={
  unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
  setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ idea(c,m){const text=String(m.text||'').trim().slice(0,300);if(text.length<10)return flash(c,'Please write at least 10 characters','bad');if(filter.check(text))return flash(c,'Please keep it clean','bad');
+  if(Date.now()-(c.lastIdea||0)<30000)return flash(c,'Slow down! Wait a bit before sending another idea','warn');
+  if(db.ideas.filter(i=>i.name===c.u.name&&i.acct===!!c.acct&&!i.handled).length>=5)return flash(c,'You already have 5 ideas waiting. Thanks!','warn');
+  c.lastIdea=Date.now();db.ideas.push({id:Date.now()*1000+Math.floor(Math.random()*1000),name:c.u.name,dn:dn(c.u),acct:!!c.acct,text,at:Date.now(),acked:false,handled:false,replies:[]});if(db.ideas.length>300)db.ideas=db.ideas.slice(-300);save();pushIdeas();flash(c,'Idea sent! Thanks 💡','ok')},
+ ideas(c){if(c.u.owner&&c.acct)send(c,{t:'ideas',list:ideaList()})},
+ ideaact(c,m){if(!c.u?.owner||!c.acct)return;const r=db.ideas.find(x=>x.id===m.id);if(!r)return;const snip=r.text.length>60?r.text.slice(0,57)+'...':r.text,txt=String(m.text||'').trim().slice(0,300);
+  if(m.act==='ack'){if(r.acked)return;r.acked=true;r.handled=true;inboxAdd(r.name,r.acct,{kind:'idea',text:'💡 '+dn(c.u)+' thought your idea was a good idea! "'+snip+'"'})}
+  else if(m.act==='reply'&&txt){r.replies.push({by:dn(c.u),text:txt,at:Date.now()});r.handled=true;inboxAdd(r.name,r.acct,{kind:'idea',text:'💬 '+dn(c.u)+' replied to your idea "'+snip+'": '+txt})}
+  else return;save();pushIdeas()},
+ inbox(c){const inb=c.u.inbox||[];send(c,{t:'inbox',unread:0,list:inb.slice().reverse()});if(inb.some(x=>!x.read)){inb.forEach(x=>x.read=true);if(c.acct)save()}},
  mymodreq(c){if(!c.acct)return flash(c,'Sign up for an account first to request mod','bad');const r=reqOf(c.u.name);let can=true,why='';
   if(c.u.mod||c.u.owner){can=false;why='You already have mod powers.'}
   else if(r&&r.status=='pending'){can=false;why='Your request is waiting for a decision.'}
@@ -130,10 +145,10 @@ const handlers={
  modact(c,m){if(!canEdit(c))return;const r=db.modreqs.find(x=>x.id===m.id);if(!r||r.status!=='pending')return;const act=m.act,txt=String(m.text||'').trim().slice(0,300);
   if(act==='accept'){const u=db.users[r.name];if(!u||u.owner)return;u.mod=true;r.status='accepted';r.decidedAt=Date.now();const t=find(r.name);if(t)send(t,{t:'me',me:me(t)});note(r,'✅ Your mod request was accepted. You now have Mod powers!','accepted')}
   else if(act==='deny'){r.status='denied';r.decidedAt=Date.now();note(r,'❌ Your mod request was denied.','denied')}
-  else if(act==='reply'&&txt){r.replies.push({by:dn(c.u),text:txt,at:Date.now()});note(r,'📩 '+dn(c.u)+': '+txt,'reply')}
+  else if(act==='reply'&&txt){r.replies.push({by:dn(c.u),text:txt,at:Date.now()});note(r,'📩 '+dn(c.u)+' replied to your mod request: '+txt)}
   else return;save();pushReqs();lobby()},
- setreqedit(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqedit=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});onLogin(t.c)}lobby()},
- setreqview(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqview=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});onLogin(t.c)}lobby()},
+ setreqedit(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqedit=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canView(t.c))send(t.c,{t:'modreqs',list:reqList()})}lobby()},
+ setreqview(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.reqview=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canView(t.c))send(t.c,{t:'modreqs',list:reqList()})}lobby()},
  setalpha(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.alpha=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  scare(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to),i=m.img;if(!t||!t.c||t.u.owner)return;if(typeof i!=='string'||i.length>400000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(i))return;send(t.c,{t:'scare',img:i})},
  addlife(c,m){if(!c.u?.owner||!c.acct)return;const bt=c.bt||c.watch;if(!bt||!bt.live)return;const i=m.i===1?1:0;bt.lives[i]=Math.min(10,bt.lives[i]+1);push(bt)},
@@ -157,5 +172,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
