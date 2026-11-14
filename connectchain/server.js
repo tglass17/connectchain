@@ -19,10 +19,10 @@ const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.n
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
-function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
-const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n}if(c.acct)save();send(c,{t:'me',me:me(c)})};
+function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
+const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
-function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c)}
+function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c)}
 function logout(c){if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
@@ -54,6 +54,17 @@ async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt
 const find=n=>online.get(String(n).toLowerCase());
 function target(n){const c=find(n);if(c)return{c,u:c.u};const u=Object.values(db.users).find(x=>x.name.toLowerCase()==String(n).toLowerCase());return u&&{u}}
 const okName=n=>/^[A-Za-z0-9_]{3,16}$/.test(n)&&!filter.check(n);
+const TZ=process.env.TZ_NAME||'America/New_York',IDLE=+process.env.IDLE_MS||33*60000,HID=+process.env.HIDDEN_MS||60000,TICK=+process.env.TICK_MS||15000;
+const ymd=()=>new Date().toLocaleDateString('en-CA',{timeZone:TZ});
+function wk(d){const t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-(t.getUTCDay()+6)%7);return t.toISOString().slice(0,10)}
+function roll(u){const d=ymd(),w=wk(d),m=d.slice(0,7),g=u.g=u.g||{d,dx:0,w,wx:0,m,mx:0};if(g.d!==d){g.d=d;g.dx=0}if(g.w!==w){g.w=w;g.wx=0}if(g.m!==m){g.m=m;g.mx=0}return g}
+const gain=(u,n)=>{if(!(n>0)||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx+=n;g.wx+=n;g.mx+=n};
+function lbData(){const us=Object.values(db.users),top=f=>us.map(u=>({u,v:f(u)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...pub(x.u),v:Math.round(x.v)}));
+ return{day:top(u=>u.owner?0:roll(u).dx),week:top(u=>u.owner?0:roll(u).wx),month:top(u=>u.owner?0:roll(u).mx),all:top(u=>u.owner?0:u.xp),time:top(u=>u.secs||0)}}
+let tk=0;setInterval(()=>{const now=Date.now();let ch=false;for(const c of online.values()){if(!c.lastAct)c.lastAct=now;
+ if(!c.inact&&((c.hiddenSince&&now-c.hiddenSince>HID)||(now-c.lastAct>IDLE&&!c.bt&&!c.watch))){c.inact=true;ch=true}
+ if(c.u&&c.acct&&!c.inact)c.u.secs=(c.u.secs||0)+TICK/1000}
+ if(ch)lobby();if(++tk%8==0)save()},TICK);
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -105,7 +116,10 @@ const handlers={
   const secs=Math.min(600,Math.max(15,Math.floor(+m.secs)||60));clearTimeout(pollT);poll={id:Date.now(),q,opts:o,votes:{},endsAt:Date.now()+secs*1000,done:false,by:dn(c.u)};pollT=setTimeout(endPoll,secs*1000);bcPoll()},
  endpoll(c){if(c.u?.owner&&c.acct)endPoll()},
  vote(c,m){if(!poll||poll.done||Date.now()>poll.endsAt||m.id!==poll.id)return;const i=m.i|0;if(i<0||i>=poll.opts.length)return;poll.votes[pkey(c)]=i;clearTimeout(pollBc);pollBc=setTimeout(bcPoll,250)},
- grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ active(c){c.lastAct=Date.now();if(c.inact){c.inact=false;lobby()}},
+ vis(c,m){c.hiddenSince=m.hidden?Date.now():0},
+ lb(c){if(Date.now()-(c.lbAt||0)<3000)return;c.lbAt=Date.now();send(c,{t:'lb',...lbData()})},
+ grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);gain(t.u,n);t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
