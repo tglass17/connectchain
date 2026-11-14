@@ -6,6 +6,7 @@ const RURL=process.env.UPSTASH_REDIS_REST_URL,RTOK=process.env.UPSTASH_REDIS_RES
 const rcmd=a=>fetch(RURL,{method:'POST',headers:{Authorization:'Bearer '+RTOK},body:JSON.stringify(a)}).then(r=>r.json());
 const flush=()=>{const d=JSON.stringify(db);fs.writeFile(DB,d,()=>{});if(RURL)rcmd(['SET','connectchain',d]).catch(e=>console.log('remote save failed',e.message))};
 let st=0;const save=()=>{if(!st)st=setTimeout(()=>{st=0;flush()},RURL?10000:500)};
+process.on('unhandledRejection',e=>console.log('unhandled rejection:',e&&e.message));
 process.on('SIGTERM',()=>{flush();setTimeout(()=>process.exit(0),1500)});
 const hash=(p,s)=>crypto.scryptSync(p,s,32).toString('hex');
 const mk=(n,p)=>{const salt=crypto.randomBytes(8).toString('hex');return{name:n,salt,hash:hash(p,salt),xp:0,bal:0,mult:1,color:'white',tag:'',owner:n===OWNER}};
@@ -19,11 +20,11 @@ const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.n
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
-function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
+function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
 function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
-function logout(c){if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
+function logout(c){if(c.end)finishEnd(c,false);if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
 const KINDS=[['rel_trg',300],['rel_bga',150],['rel_bgb',150],['ml',60],['rel_syn',60],['rel_gen',60],['rel_spc',60],['rel_com',60],['rel_par',60]];
@@ -70,19 +71,38 @@ const canEdit=c=>c.u&&c.acct&&(c.u.owner||c.u.reqedit);
 const reqOf=n=>[...db.modreqs].reverse().find(r=>r.name.toLowerCase()==String(n).toLowerCase());
 const reqList=()=>db.modreqs.slice(-100).map(r=>({id:r.id,name:r.name,dn:dn(db.users[r.name]||{name:r.name}),reason:r.reason,at:r.at,status:r.status,replies:r.replies}));
 const pushReqs=()=>{const l=reqList();for(const x of online.values())if(canView(x))send(x,{t:'modreqs',list:l})};
+const lc=s=>String(s).toLowerCase();
+const isMem=(r,n)=>r.members.some(x=>lc(x)==lc(n));
+const acctName=n=>Object.keys(db.users).find(k=>lc(k)==lc(n));
+const mview=n=>({name:n,dn:dn(db.users[n]||{name:n})});
+const roomsFor=n=>Object.values(db.rooms).filter(r=>isMem(r,n));
+const rsum=(r,n)=>{const l=r.msgs[r.msgs.length-1];return{id:r.id,name:r.name,members:r.members.map(mview),last:l?{dn:l.dn,text:l.text.slice(0,50),at:l.at}:null,at:l?l.at:r.created,unread:r.msgs.filter(m=>m.at>(r.read[lc(n)]||0)&&lc(m.u)!=lc(n)).length}};
+const rfull=r=>({id:r.id,name:r.name,members:r.members.map(mview),msgs:r.msgs.slice(-100)});
+function pushRooms(names){for(const x of online.values())if(x.acct&&x.u&&names.some(n=>lc(n)==lc(x.u.name)))send(x,{t:'rooms',list:roomsFor(x.u.name).map(r=>rsum(r,x.u.name)).sort((a,b)=>b.at-a.at)})}
+const toMembers=(r,msg)=>{for(const x of online.values())if(x.acct&&x.u&&isMem(r,x.u.name))send(x,msg)};
 const ideaList=()=>db.ideas.slice(-100).map(r=>({id:r.id,name:r.name,dn:r.dn,text:r.text,at:r.at,acked:r.acked,handled:r.handled,replies:r.replies}));
 const pushIdeas=()=>{for(const x of online.values())if(x.u&&x.acct&&x.u.owner)send(x,{t:'ideas',list:ideaList()})};
 function inboxAdd(name,acct,item){const c=find(name);let u=null;if(c&&c.acct===acct)u=c.u;else if(acct)u=db.users[name];if(!u)return;
  const inb=u.inbox=u.inbox||[];inb.push({id:Date.now()*1000+Math.floor(Math.random()*1000),read:false,at:Date.now(),...item});if(inb.length>50)inb.splice(0,inb.length-50);
  if(acct)save();if(c&&c.acct===acct)send(c,{t:'inbox',unread:inb.filter(x=>!x.read).length,new:item.text})}
 function note(r,text){inboxAdd(r.name,true,{kind:'modreq',text})}
-function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()})}
+function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct)pushRooms([c.u.name])}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
 function sendPoll(c){if(!poll||!c.u)return;send(c,{t:'poll',poll:pview(),mine:poll.votes[pkey(c)]})}
 function bcPoll(){for(const x of online.values())sendPoll(x)}
 function endPoll(){if(!poll||poll.done)return;poll.done=true;clearTimeout(pollT);bcPoll()}
+const ENDCAP=500,ENDWORD=5,ENDBONUS=5,startWord=()=>WORDS[Math.random()*WORDS.length|0];
+const esend=(c,msg)=>{const e=c.end;send(c,{t:'end',chain:e.chain,words:e.words,streak:e.streak,turn:e.turn,msg})};
+const addEnd=(e,n)=>{e.xp=Math.min(ENDCAP,e.xp+n)};
+function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);
+ if(notify)send(c,{t:'endover',words:e.words,best:e.best,xp:amt,mult:c.u.mult,capped:e.xp>=ENDCAP});lobby()}
+async function botMove(c){const e=c.end;if(!e)return;let pick=null;
+ if(Math.random()>0.2){const last=e.chain.at(-1);const pool=[...(await dm('rel_trg='+last,40)),...(await dm('rel_bga='+last,40))].filter(w=>/^[a-z]{3,12}$/.test(w)&&!e.chain.includes(w)&&!filter.check(w));if(pool.length)pick=pool[Math.random()*pool.length|0]}
+ if(c.end!==e)return;
+ if(!pick){addEnd(e,ENDBONUS);e.chain=[startWord()];e.streak=0;e.turn='you';return esend(c,'🤖 The bot blanked and made a mistake! +'+ENDBONUS+' bonus XP. New word!')}
+ e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
 const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canAnn=c=>c.u&&c.acct&&(c.u.owner||c.u.mod||c.u.alpha);
 const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
@@ -100,13 +120,13 @@ const handlers={
   const o=find(u.name);if(o&&o!==c){logout(o);o.ws.close()}
   const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=u.name;save();login(c,u,true);send(c,{t:'token',tk})},
  resume(c,m){const n=db.tokens[m.tk],u=n&&db.users[n];if(!u)return send(c,{t:'badtoken'});if(blocked(c,n))return;const o=find(n);if(o&&o!==c){logout(o);o.ws.close()}login(c,u,true)},
- challenge(c,m){const o=find(m.to);if(!o||o===c||o.bt||c.bt||c.pend)return;
+ challenge(c,m){if(c.end)return flash(c,'Stop endless mode first','warn');const o=find(m.to);if(!o||o===c||o.bt||o.end||c.bt||c.pend)return;
   c.pend={to:o,tm:setTimeout(()=>{if(c.pend&&c.pend.to===o){c.pend=null;send(c,{t:'noresp',name:dn(o.u)});send(o,{t:'chalgone',from:c.u.name})}},20000)};
   send(o,{t:'challenge',from:c.u.name,dn:dn(c.u)})},
  deny(c,m){const o=find(m.from);if(!o||!o.pend||o.pend.to!==c)return;clearTimeout(o.pend.tm);o.pend=null;send(o,{t:'denied',name:dn(c.u)})},
- accept(c,m){const o=find(m.from);if(!o||!o.pend||o.pend.to!==c||o.bt||c.bt)return;clearTimeout(o.pend.tm);o.pend=null;start(o,c)},
+ accept(c,m){if(c.end)return flash(c,'Stop endless mode first','warn');const o=find(m.from);if(!o||!o.pend||o.pend.to!==c||o.bt||c.bt)return;clearTimeout(o.pend.tm);o.pend=null;start(o,c)},
  typing(c,m){const bt=c.bt;if(!bt)return;const txt=filter.clean(String(m.text).slice(0,24)),i=bt.p.indexOf(c);send(bt.p[1-i],{t:'opptype',text:txt});bt.spec.forEach(s=>send(s,{t:'spectype',who:i,text:txt}))},
- watch(c,m){const o=find(m.who);if(!o||!o.bt||c.bt||c===o)return;if(c.watch)c.watch.spec.delete(c);c.watch=o.bt;o.bt.spec.add(c);send(c,specState(o.bt))},
+ watch(c,m){const o=find(m.who);if(!o||!o.bt||c.bt||c.end||c===o)return;if(c.watch)c.watch.spec.delete(c);c.watch=o.bt;o.bt.spec.add(c);send(c,specState(o.bt))},
  unwatch(c){if(c.watch){c.watch.spec.delete(c);c.watch=null}},
  setdisplay(c,m){const x=String(m.text||'').trim().replace(/\s+/g,' ');
   if(x){if(!/^[A-Za-z0-9_ .!-]{2,20}$/.test(x)||filter.check(x))return flash(c,'Display name: 2-20 letters, numbers, spaces, _ . ! - (no bad words)','bad');
@@ -114,7 +134,7 @@ const handlers={
   c.u.display=x;if(c.acct)save();send(c,{t:'me',me:me(c)});if(c.bt&&c.bt.live)push(c.bt);lobby()},
  submit(c,m){submit(c,m.word)},
  forfeit(c){end(c,false)},
- color(c,m){const k=COLORS.find(x=>x[0]==m.color);if(k&&c.u.xp>=k[1]){c.u.color=k[0];if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()}},
+ color(c,m){const k=COLORS.find(x=>x[0]==m.color),own=c.u.owner;if((k&&(own||c.u.xp>=k[1]))||(own&&m.color=='ownerrainbow')){c.u.color=m.color;if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()}},
  buy(c,m){const p=SHOP[m.mult];if(p&&c.u.bal>=p&&c.u.mult<+m.mult){c.u.bal-=p;c.u.mult=+m.mult;if(c.acct)save();send(c,{t:'me',me:me(c)})}},
  announce(c,m){if(!canAnn(c))return;const t=String(m.text||'').trim().slice(0,140);if(!t||Date.now()-(c.lastAnn||0)<3000)return;c.lastAnn=Date.now();for(const x of online.values())send(x,{t:'announce',text:t,from:dn(c.u)})},
  warn(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!t.c||!canHit(c,t.u))return;const x=String(m.text||'').trim().slice(0,100)||'Please follow the rules.';t.u.warns=(t.u.warns||0)+1;if(t.c.acct)save();send(t.c,{t:'warned',text:x,count:t.u.warns,by:dn(c.u)})},
@@ -122,6 +142,32 @@ const handlers={
  unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
  setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ endstart(c){if(c.bt||c.watch||c.end)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
+ async endsubmit(c,m){const e=c.end;if(!e||e.turn!=='you'||e.busy)return;const w=String(m.word||'').toLowerCase().trim();
+  if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only','bad');
+  if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
+  if(e.xp>=ENDCAP)return flash(c,'You hit the XP cap for this run. Press Stop to collect!','warn');
+  e.busy=true;const ok=!e.chain.includes(w)&&await rel(e.chain.at(-1),w);e.busy=false;if(c.end!==e)return;
+  if(!ok){flash(c,'That is unrelated!','bad');e.chain=[startWord()];e.streak=0;return esend(c,'Oops, that did not connect. New word!')}
+  e.chain.push(w);e.words++;e.streak++;e.best=Math.max(e.best,e.streak);addEnd(e,ENDWORD);e.turn='bot';esend(c,'✅ Nice one!');setTimeout(()=>botMove(c),1000+Math.random()*1500)},
+ endstop(c){finishEnd(c,true)},
+ rooms(c){if(c.acct)pushRooms([c.u.name])},
+ roomnew(c,m){if(!c.acct)return flash(c,'Sign up for an account to use chatrooms','bad');if(Date.now()-(c.lastRoom||0)<5000)return flash(c,'Slow down a little','warn');
+  const name=String(m.name||'').trim().slice(0,30);if(!name||filter.check(name))return flash(c,'Give the chatroom a clean name (1-30 characters)','bad');
+  if(roomsFor(c.u.name).length>=30)return flash(c,'You are in too many chatrooms','bad');
+  const mem=[c.u.name],bad=[];for(const x of (Array.isArray(m.users)?m.users:[]).slice(0,19)){const q=String(x).trim();if(!q)continue;const k=acctName(q);if(!k)bad.push(q.slice(0,16));else if(!mem.some(y=>lc(y)==lc(k)))mem.push(k)}
+  const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);db.rooms[id]={id,name,members:mem,msgs:[],read:{[lc(c.u.name)]:Date.now()},created:Date.now(),by:c.u.name};c.lastRoom=Date.now();save();
+  mem.slice(1).forEach(n=>inboxAdd(n,true,{kind:'room',text:'💬 '+dn(c.u)+' added you to the chatroom "'+name+'"'}));pushRooms(mem);send(c,{t:'room',room:rfull(db.rooms[id]),bad})},
+ roomopen(c,m){const r=db.rooms[m.id];if(!c.acct||!r||!isMem(r,c.u.name))return;r.read[lc(c.u.name)]=Date.now();send(c,{t:'room',room:rfull(r)});pushRooms([c.u.name])},
+ roomread(c,m){const r=db.rooms[m.id];if(c.acct&&r&&isMem(r,c.u.name)){r.read[lc(c.u.name)]=Date.now();save()}},
+ roomsend(c,m){const r=db.rooms[m.id];if(!c.acct||!r||!isMem(r,c.u.name))return;const t=filter.clean(String(m.text||'').trim().slice(0,300));if(!t||Date.now()-(c.lastRmsg||0)<400)return;c.lastRmsg=Date.now();
+  const msg={id:Date.now()*1000+Math.floor(Math.random()*1000),u:c.u.name,dn:dn(c.u),text:t,at:Date.now()};r.msgs.push(msg);if(r.msgs.length>200)r.msgs.splice(0,r.msgs.length-200);r.read[lc(c.u.name)]=Date.now();save();toMembers(r,{t:'rmsg',id:r.id,msg})},
+ roomadd(c,m){const r=db.rooms[m.id];if(!c.acct||!r||!isMem(r,c.u.name))return;const added=[],bad=[];
+  for(const x of (Array.isArray(m.users)?m.users:[]).slice(0,10)){const q=String(x).trim();if(!q)continue;const k=acctName(q);if(!k)bad.push(q.slice(0,16));else if(!isMem(r,k)&&r.members.length<20){r.members.push(k);added.push(k)}}
+  if(added.length){save();added.forEach(n=>inboxAdd(n,true,{kind:'room',text:'💬 '+dn(c.u)+' added you to the chatroom "'+r.name+'"'}));pushRooms(r.members);toMembers(r,{t:'roommem',id:r.id,members:r.members.map(mview)})}
+  send(c,{t:'roomadded',added,bad})},
+ roomleave(c,m){const r=db.rooms[m.id];if(!c.acct||!r||!isMem(r,c.u.name))return;r.members=r.members.filter(x=>lc(x)!=lc(c.u.name));
+  if(!r.members.length)delete db.rooms[r.id];else toMembers(r,{t:'roommem',id:r.id,members:r.members.map(mview)});save();pushRooms([c.u.name,...r.members])},
  idea(c,m){const text=String(m.text||'').trim().slice(0,300);if(text.length<10)return flash(c,'Please write at least 10 characters','bad');if(filter.check(text))return flash(c,'Please keep it clean','bad');
   if(Date.now()-(c.lastIdea||0)<30000)return flash(c,'Slow down! Wait a bit before sending another idea','warn');
   if(db.ideas.filter(i=>i.name===c.u.name&&i.acct===!!c.acct&&!i.handled).length>=5)return flash(c,'You already have 5 ideas waiting. Thanks!','warn');
@@ -172,5 +218,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
