@@ -51,12 +51,20 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 .glow{filter:drop-shadow(0 0 6px #ff0)}
 #enchain{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:38px;min-height:80px;margin:20px 0}
 #enw{font-size:32px;width:min(700px,92%);text-align:center;border:3px solid #16a34a;margin:10px 0}
+#coins{position:fixed;inset:0;z-index:150;pointer-events:none}
+#telayer{position:fixed;inset:0;z-index:160;pointer-events:none;display:none;overflow:hidden}
+#tebar{position:fixed;top:14px;left:0;right:0;text-align:center;z-index:170;display:none;font-size:min(8vw,72px);color:#fde047;text-shadow:0 0 18px #f59e0b,0 4px 0 #92400e;letter-spacing:4px;animation:tedrop .5s ease-out;pointer-events:none;white-space:nowrap}
+@keyframes tedrop{from{transform:translateY(-150%);opacity:0}}
+.coin{position:absolute;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;filter:drop-shadow(0 0 8px gold);animation:cpop .25s ease-out,cbob 1s .25s ease-in-out infinite}
+.coin.big{filter:drop-shadow(0 0 16px #fff) drop-shadow(0 0 10px gold)}
+@keyframes cpop{from{transform:scale(0)}to{transform:scale(1)}}@keyframes cbob{50%{transform:translateY(-8px)}}
+.cf{position:absolute;color:#fde047;font-weight:bold;text-shadow:0 0 6px #000,0 0 3px #000;animation:cup 1s forwards;pointer-events:none}@keyframes cup{to{transform:translateY(-60px);opacity:0}}
 </style></head><body>
 <header><b>ConnectChain</b>
 <div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
 <span>or</span><input id="an" placeholder="account name" size="12" autocomplete="off"><input id="ap" type="password" placeholder="password" size="10">
 <button onclick="acct('signup')">Sign up</button><button onclick="acct('login')">Log in</button><button id="past" onclick="past()" style="display:none">Log in from past</button></div>
-<span id="me"></span><button id="inb" style="display:none;position:relative" onclick="event.stopPropagation();openInbox()">Inbox<span id="inbn"></span></button><button id="lob" style="display:none" onclick="event.stopPropagation();doLogout()">Log out</button><span id="conn" style="margin-left:auto">● connecting…</span><button id="env" style="display:none;position:relative;font-size:22px" onclick="event.stopPropagation();openReqs()" title="Mod requests">✉️<span id="envn"></span></button></header>
+<span id="me"></span><button id="inb" style="display:none;position:relative" onclick="event.stopPropagation();openInbox()">Inbox<span id="inbn"></span></button><button id="frb" style="display:none;position:relative" onclick="event.stopPropagation();openFriends()">Friends<span id="frn"></span></button><button id="lob" style="display:none" onclick="event.stopPropagation();doLogout()">Log out</button><span id="conn" style="margin-left:auto">● connecting…</span><button id="env" style="display:none;position:relative;font-size:22px" onclick="event.stopPropagation();openReqs()" title="Mod requests">✉️<span id="envn"></span></button><button id="tools" style="display:none;font-size:22px" onclick="event.stopPropagation();openTools()" title="Owner tools">🛠️</button></header>
 <main><div><div class="panel" id="game">
 <div id="welcome"><h1>Word chain battles</h1><p style="font-size:22px">Make a username up top, then press <b>Battle!</b> next to a player. <b>Guests lose their XP when they leave — sign up to keep it.</b> Say a word that connects to the last one — cat → mouse → trap → door. 3 lives each!</p></div>
 <div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="slife" style="font-size:2cqw"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
@@ -70,20 +78,21 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 <div class="panel" id="lbp" style="display:none"><h2 style="margin-top:0">🏆 Leaderboard</h2><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
+<p><b>Live events</b></p><button onclick="send({t:'buyevent'})">💥 Token Explosion (10000 XP)</button>
 <div id="own" style="display:none"><p><b>Owner tag</b></p><button onclick="openMenu('__me')">Edit my tag colors</button></div>
 <div id="pollp" style="display:none"><p><b>Start a poll</b></p><input id="pq" maxlength="120" placeholder="Question" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 1" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 2" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 3 (optional)" style="width:100%"><input class="pop" maxlength="40" placeholder="Option 4 (optional)" style="width:100%"><br><select id="ps"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select> <button class="go" onclick="startPoll()">Start poll</button></div>
 <div id="modp" style="display:none"><p><b>Staff tools</b></p><input id="gmsg" maxlength="140" placeholder="global message" style="width:100%"><br><button onclick="sendAnn()">📢 Send to everyone</button> <button id="blb" onclick="send({t:'banlist'})">Ban list</button></div></div></div></main>
 <div id="req"><b id="reqname"></b> wants to battle you!<br><br><button class="go" onclick="reply('accept')">Accept</button> <button class="no" onclick="reply('deny')">Deny</button><div id="bar"></div></div>
 <div id="ov"></div><div id="bl"><button id="srbtn" onclick="event.stopPropagation();openRooms()">💬 Saved chatrooms<span id="srn"></span></button><button id="nrbtn" onclick="event.stopPropagation();newRoom()">➕ New Chatroom</button><div class="blr"><button id="mrbtn" onclick="reqBtn()">📝 Mod request</button><button id="idbtn" onclick="event.stopPropagation();ideaBtn()">💡 Update Ideas</button></div></div>
-<div id="chat"><div id="chh"></div><div id="chm"></div><div id="chadd"></div><div style="display:flex;gap:8px"><input id="chi" maxlength="300" placeholder="Type a message..." style="flex:1;border:2px solid #16a34a" onkeydown="if(event.key=='Enter')roomSend()"><button class="go" onclick="roomSend()">Send</button></div></div><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v16</div><div id="banner"></div><div id="sd"></div><div id="fb"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
+<div id="chat"><div id="chh"></div><div id="chm"></div><div id="chadd"></div><div style="display:flex;gap:8px"><input id="chi" maxlength="300" placeholder="Type a message..." style="flex:1;border:2px solid #16a34a" onkeydown="if(event.key=='Enter')roomSend()"><button class="go" onclick="roomSend()">Send</button></div></div><div style="position:fixed;right:10px;bottom:4px;font-size:12px;color:#166534;opacity:.8;z-index:5">build v18</div><div id="telayer"></div><div id="coins"></div><div id="tebar">TOKEN EXPLOSION</div><div id="banner"></div><div id="sd"></div><div id="fb"></div><div id="pollbox"></div><div id="scare"><img id="scimg"></div><div id="flash"></div><div id="menu"></div>
 <script>
-const $=id=>document.getElementById(id);let isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
+const $=id=>document.getElementById(id);let autoGuest=false,teBusy=false,teT=[],coinPos={},friendsData={friends:[],inc:[],out:[]},isBanned=false,bT,scareData='',lastList=[],ws,you,ot={c1:'#ff0080',c2:'#00d4ff'},colors=[],reqT,myTurn=false,live=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'bad');clearTimeout(toast.t);toast.t=setTimeout(()=>f.className='',3000)}
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
 function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
- ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}};
- ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('env').style.display='none';$('inb').style.display='none';$('lob').style.display='none';inUnread=0;curRoom=null;$('chat').style.display='none';$('endless').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+ ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}else if(localStorage.ccguest){autoGuest=true;ws.send(JSON.stringify({t:'guest',name:localStorage.ccguest}))}};
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('env').style.display='none';$('inb').style.display='none';$('lob').style.display='none';$('frb').style.display='none';$('tools').style.display='none';teAbort();inUnread=0;curRoom=null;$('chat').style.display='none';$('endless').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
@@ -104,13 +113,13 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
- if(m.t=='me'){you=m.me;if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('inb').style.display='';$('lob').style.display='';inbUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display='';
+ if(m.t=='me'){you=m.me;autoGuest=false;if(you.account)localStorage.removeItem('ccguest');else{localStorage.ccguest=you.name;localStorage.removeItem('cctk')}if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('inb').style.display='';$('lob').style.display='';$('frb').style.display=you.account?'':'none';inbUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('colbox').style.display='';
   $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=[...(you.owner?[['ownerrainbow',0]]:[]),...colors.filter(c=>(you.owner||you.xp>=c[1])&&!(you.owner&&c[0]=='white'))].map(c=>`<option value="${c[0]}" ${(c[0]==you.color||(you.owner&&c[0]=='ownerrainbow'&&you.color=='white'))?'selected':''}>${CN[c[0]]||c[0]}</option>`).join('')}
- if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none'}
+ if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none';if(localStorage.ccguest)send({t:'guest',name:localStorage.ccguest})}
  if(m.t=='token')localStorage.cctk=m.tk;
  if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small>${u.away?' <small style="color:#6b7280">(Not Active)</small>':''}</span>${you&&u.name!=you.name?(u.endless?'<small>♾️ endless</small>':u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
- if(m.t=='flash')toast(m.text,m.kind);
+ if(m.t=='flash'){toast(m.text,m.kind);if(autoGuest&&!you&&m.kind=='bad'){localStorage.removeItem('ccguest');autoGuest=false}}
  if(m.t=='challenge')showReq(m.from,m.dn);
  if(m.t=='chalgone'&&$('req').dataset.from==m.from)hideReq();
  if(m.t=='noresp')toast(m.name+' did not respond','bad');
@@ -133,6 +142,9 @@ function on(m){
  if(m.t=='mymodreq')renderMyReq(m);
  if(m.t=='modnote')banner(m.text,'ann',8000);
  if(m.t=='lb'){lbData=m;lbRender()}
+ if(m.t=='friends'){friendsData=m;frUpdate()}
+ if(m.t=='tevent')tokenEvent(m);
+ if(m.t=='coinok')coinFloat(m);
  if(m.t=='loggedout')loggedOut();
  if(m.t=='selfdestruct')selfDestruct();
  if(m.t=='poll')showPoll(m.poll,m.mine);
@@ -177,7 +189,7 @@ function act(){const n=Date.now();if(n-lastAct<3000)return;lastAct=n;raw({t:'act
 document.addEventListener('visibilitychange',()=>{lastAct=0;raw({t:'vis',hidden:document.hidden})});
 const CN={white:'white (plain)',blueg:'blue gradient',redorangeg:'red-orange gradient',greenhaze:'green haze',purplehaze:'purple haze',ownerrainbow:'glowing rainbow (owner)'};
 let rooms=[],curRoom=null,roomsPending=false,reqs=[],showReqs=false,ideas=[],reqTab='req',inUnread=0;
-function envUpdate(){const v=you&&(you.owner||you.rv||you.re);$('env').style.display=v?'':'none';const n=reqs.filter(r=>r.status=='pending').length+(you&&you.owner?ideas.filter(i=>!i.handled).length:0);$('envn').innerHTML=n?`<span class="bdg">${n}</span>`:''}
+function envUpdate(){const v=you&&(you.owner||you.rv||you.re);$('env').style.display=v?'':'none';$('tools').style.display=you&&you.owner?'':'none';const n=reqs.filter(r=>r.status=='pending').length+(you&&you.owner?ideas.filter(i=>!i.handled).length:0);$('envn').innerHTML=n?`<span class="bdg">${n}</span>`:''}
 const ago=t=>{const s=(Date.now()-t)/1000;return s<60?'just now':s<3600?Math.floor(s/60)+'m ago':s<86400?Math.floor(s/3600)+'h ago':Math.floor(s/86400)+'d ago'};
 const replyHtml=r=>(r.replies||[]).map(x=>`<p style="background:#f0fdf4;padding:8px;border-radius:10px;margin:6px 0"><b>${esc(x.by)}:</b> ${esc(x.text)}</p>`).join('');
 function renderMyReq(m){showReqs=false;const r=m.req,mm=$('menu');mm.style.display='block';
@@ -201,7 +213,7 @@ function ideaAct(id,act,text){send({t:'ideaact',id,act,text})}
 const inbUpdate=()=>{$('inbn').innerHTML=inUnread?`<span class="bdg">${inUnread}</span>`:''};
 const openInbox=()=>send({t:'inbox'});
 function renderInbox(L){showReqs=false;const mm=$('menu');mm.style.display='block';
- mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">📬 Inbox</h3>`+(L.length?L.map(x=>`<div style="border-radius:12px;padding:10px;margin:8px 0;background:${x.read?'#f3f4f6':'#dcfce7'}"><small>${({idea:'Update idea',modreq:'Mod request',room:'Chatroom'})[x.kind]||'Message'} · ${ago(x.at)}${x.read?'':' · new'}</small><p style="margin:4px 0">${esc(x.text)}</p></div>`).join(''):'Nothing here yet. Replies to your mod requests and update ideas show up here.')}
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">📬 Inbox</h3>`+(L.length?L.map(x=>`<div style="border-radius:12px;padding:10px;margin:8px 0;background:${x.read?'#f3f4f6':'#dcfce7'}"><small>${({idea:'Update idea',modreq:'Mod request',room:'Chatroom',friend:'Friend'})[x.kind]||'Message'} · ${ago(x.at)}${x.read?'':' · new'}</small><p style="margin:4px 0">${esc(x.text)}</p>${x.kind=='friend'&&x.status=='pending'?`<button class="go" onclick="friendRespInbox('${esc(x.from)}',true)">Accept</button> <button class="no" onclick="friendRespInbox('${esc(x.from)}',false)">Decline</button>`:(x.kind=='friend'&&x.status?`<small>${x.status}</small>`:'')}</div>`).join(''):'Nothing here yet. Replies to your mod requests and update ideas show up here.')}
 function endStart(){if(!you)return toast('Log in or pick a username first','warn');send({t:'endstart'})}
 function endStop(){send({t:'endstop'})}
 function endSub(){const w=$('enw').value.trim();if(!w||$('enw').disabled)return;send({t:'endsubmit',word:w});$('enw').value=''}
@@ -247,7 +259,7 @@ function openMenu(n){tagTo=n;const me=n=='__me',cur=lastList.find(x=>x.name==n)|
   if(!me&&!cur.owner)h+=`<hr><b>Mod Powers</b><br>${cur.mod?`<button class="no" onclick="setMod('${esc(n)}',false)">Revoke Mod</button>`:`<button class="go" onclick="setMod('${esc(n)}',true)">Grant Mod</button>`}<br><br><b>Alpha Powers</b> <small>(global messages + polls)</small><br>${cur.alpha?`<button class="no" onclick="setAlpha('${esc(n)}',false)">Revoke Alpha</button>`:`<button class="go" onclick="setAlpha('${esc(n)}',true)">Grant Alpha</button>`}<br><br><b>Mod Request Viewer</b> <small>(sees the ✉️ envelope, view only)</small><br>${cur.rv?`<button class="no" onclick="setRv('${esc(n)}',false)">Revoke Viewer</button>`:`<button class="go" onclick="setRv('${esc(n)}',true)">Grant Viewer</button>`}<br><br><b>Mod Request Editor</b> <small>(can also accept, deny and respond)</small><br>${cur.re?`<button class="no" onclick="setRe('${esc(n)}',false)">Revoke Editor</button>`:`<button class="go" onclick="setRe('${esc(n)}',true)">Grant Editor</button>`}`}
  if(!me&&!cur.owner&&(own||!cur.mod))h+=`<hr><b>Moderation</b><br><input id="wtxt" maxlength="100" placeholder="warning message" style="width:100%"><button onclick="doWarn('${esc(n)}')">⚠️ Warn</button><br><br>Ban: <input id="bn" type="number" value="10" min="1" style="width:80px"> <select id="bu"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option><option value="0">forever</option></select><br><input id="br" maxlength="80" placeholder="reason (optional)" style="width:100%"><button class="no" onclick="doBan('${esc(n)}')">🔨 Ban</button>`;
  if(!me&&(own?!cur.owner:you.mod))h+=`<hr><b>Tricks</b><br><input type="file" id="sf" accept="image/*" onchange="loadScare(this)"><span id="sst">${localStorage.scareImg?' (saved image ready)':''}</span><br><button onclick="doScare('${esc(n)}')">👻 Jumpscare (1 second)</button>`;
- m.innerHTML=h;if(own)prev()}
+ if(!me)h+=friendBlock(n);m.innerHTML=h;if(own)prev()}
 const setRe=(n,on)=>{send({t:'setreqedit',to:n,on});closeMenu()};
 const setRv=(n,on)=>{send({t:'setreqview',to:n,on});closeMenu()};
 function grantXp(n,mode){const v=Math.abs(+$('gx').value||0);if(mode!='reset'&&!v)return toast('Type an amount first','warn');send({t:'grant',to:n,xp:mode=='add'?v:mode=='remove'?-v:-1e6});toast(mode=='reset'?'XP reset to 0':(mode=='add'?'Granted ':'Removed ')+v+' XP','ok')}
@@ -260,10 +272,46 @@ const addLife=i=>send({t:'addlife',i});
 function loadScare(inp){const f=inp.files[0];if(!f)return;const img=new Image(),url=URL.createObjectURL(f);img.onload=()=>{const k=Math.min(1,600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);scareData=c.toDataURL('image/jpeg',.8);try{localStorage.scareImg=scareData}catch(e){}$('sst').textContent=' saved ✔';URL.revokeObjectURL(url)};img.src=url}
 function doScare(n){const d=scareData||localStorage.scareImg,cur=lastList.find(x=>x.name==n)||{};if(!d&&!cur.owner)return toast('Upload an image first','warn');send({t:'scare',to:n,img:d||''});if(!cur.owner)toast('Jumpscare sent!','ok');else closeMenu()}
 function doLogout(){if(live&&!confirm('You are in a battle. Logging out will forfeit it. Log out anyway?'))return;send({t:'signout',tk:localStorage.cctk})}
-function loggedOut(){localStorage.removeItem('cctk');$('past').style.display='none';you=null;live=false;myTurn=false;closeMenu();closeChat();hideReq();
- $('out').style.display='';$('me').innerHTML='';['inb','lob','env','shop','lbp'].forEach(i=>$(i).style.display='none');
+function loggedOut(){localStorage.removeItem('cctk');teAbort();localStorage.removeItem('ccguest');$('past').style.display='none';you=null;live=false;myTurn=false;closeMenu();closeChat();hideReq();
+ $('out').style.display='';$('me').innerHTML='';['inb','lob','frb','tools','env','shop','lbp'].forEach(i=>$(i).style.display='none');
  ['arena','spectate','endless','pollbox'].forEach(i=>$(i).style.display='none');$('welcome').style.display='';
  $('list').textContent='Log in to see who is online';lastList=[];rooms=[];srUpdate();reqs=[];ideas=[];inUnread=0;inbUpdate();$('gname').value='';$('ap').value='';toast('Logged out','ok')}
+const frUpdate=()=>{const n=friendsData.inc.length;$('frn').innerHTML=n?`<span class="bdg">${n}</span>`:''};
+function friendBlock(n){const cur=lastList.find(x=>x.name==n)||{};
+ if(!you||!you.account)return '<hr><small>Sign up for an account to add friends.</small>';
+ if(!cur.acct)return "<hr><small>Guests can't be added as friends.</small>";
+ const f=friendsData,has=f.friends.some(x=>x.name==n),inc=f.inc.some(x=>x.name==n),out=f.out.includes(n);
+ return '<hr>'+(has?`✅ Friends <button class="no" onclick="unfriend('${esc(n)}')">Remove</button>`:inc?`<button class="go" onclick="friendResp('${esc(n)}',true)">Accept friend request</button> <button class="no" onclick="friendResp('${esc(n)}',false)">Decline</button>`:out?'⏳ Friend request sent':`<button class="go" onclick="friendAdd('${esc(n)}')">➕ Add friend</button>`)}
+function openUserMenu(n){const cur=lastList.find(x=>x.name==n)||{},m=$('menu');showReqs=false;m.style.display='block';
+ m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 6px">${esc(cur.dn||n)}${cur.mod?' 🛡️':''}</h3><small>${xpOf(cur)} XP</small>`+friendBlock(n)}
+const friendAdd=n=>{send({t:'friendreq',to:n});closeMenu()};
+const friendResp=(n,a)=>{send({t:'friendresp',from:n,accept:a});closeMenu()};
+const friendRespInbox=(n,a)=>send({t:'friendresp',from:n,accept:a,fromInbox:true});
+const unfriend=n=>{send({t:'unfriend',name:n});closeMenu()};
+function openFriends(){send({t:'friends'});showReqs=false;const f=friendsData,on=n=>lastList.some(x=>x.name==n),mm=$('menu');mm.style.display='block';
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">👥 Friends</h3>`+
+ (f.inc.length?`<b>Requests</b>`+f.inc.map(x=>`<div class="row"><span>${esc(x.dn)}</span><span><button class="go" onclick="friendResp('${esc(x.name)}',true)">Accept</button> <button class="no" onclick="friendResp('${esc(x.name)}',false)">Decline</button></span></div>`).join('')+'<hr>':'')+
+ (f.friends.length?f.friends.map(x=>`<div class="row"><span>${on(x.name)?'🟢':'⚪'} ${esc(x.dn)}</span><button class="no" onclick="unfriend('${esc(x.name)}')">Remove</button></div>`).join(''):"No friends yet. Click a player's name to send a friend request!")+
+ (f.out.length?`<hr><small>Waiting on: ${f.out.map(esc).join(', ')}</small>`:'')}
+function openTools(){showReqs=false;const mm=$('menu');mm.style.display='block';
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🛠️ Tools</h3><button class="go" style="font-size:22px;width:100%" onclick="send({t:'spawnevent'});closeMenu()">💥 SPAWN TOKEN EXPLOSION</button><p><small>Free for you. Coins rain for about 15 seconds.</small></p>`}
+const tt=(f,ms)=>teT.push(setTimeout(f,ms));
+function teAbort(){teT.forEach(clearTimeout);teT=[];['telayer','tebar'].forEach(i=>$(i).style.display='none');$('telayer').innerHTML='';$('coins').innerHTML='';teBusy=false}
+function teImg(src,fb,css){const i=new Image();i.style.cssText=css;i.onerror=()=>{const s=document.createElement('span');s.textContent=fb;s.style.cssText=css+';font-size:14vh;line-height:1;height:auto';i.replaceWith(s)};i.src=src;return i}
+function tokenEvent(m){if(teBusy)return;teBusy=true;const L=$('telayer'),bar=$('tebar');L.innerHTML='';L.style.display='block';coinPos={};
+ const base='position:absolute;left:0;top:42vh;height:16vh;width:auto;transform:translateX(-25vw);will-change:transform;';const gs=[];
+ for(let k=5;k>=0;k--){const g=teImg('projectile.png','☄️',base+`opacity:${k?(0.5/k).toFixed(2):1};filter:blur(${k?3:1.2}px)`);L.appendChild(g);gs.push([g,k])}
+ tt(()=>gs.forEach(([g,k])=>{g.style.transition='transform 1000ms cubic-bezier(.45,0,.9,.6) '+k*45+'ms';g.style.transform='translateX(115vw)'}),40);
+ tt(()=>{gs.forEach(([g])=>{g.style.transition='none';g.style.transform='translateX(115vw) scaleX(-1)'});void L.offsetWidth;
+  tt(()=>gs.forEach(([g,k])=>{g.style.transition='transform 1100ms cubic-bezier(.2,.6,.4,1) '+k*45+'ms';g.style.transform='translateX(2vw) scaleX(-1)'}),30)},1300);
+ tt(()=>{L.innerHTML='';const ex=teImg('projectexplosion.gif?'+Date.now(),'💥','position:absolute;left:0;top:50%;transform:translateY(-50%);height:60vh;width:auto');L.appendChild(ex);bar.style.display='block';tt(()=>{ex.remove()},1700)},2650);
+ m.coins.forEach(c=>tt(()=>spawnCoin(m.id,c),m.startIn+c.t));
+ tt(()=>{bar.style.display='none'},m.startIn+15000+1500);
+ tt(()=>{L.style.display='none';L.innerHTML='';teBusy=false},m.startIn+15000+4000)}
+function spawnCoin(ev,c){const d=document.createElement('div'),sz=c.big?88:60;d.className='coin'+(c.big?' big':'');d.textContent='🪙';d.style.cssText=`left:${c.x}vw;top:${c.y}vh;width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.85)}px`;
+ d.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();if(d.dataset.k)return;d.dataset.k=1;const r=d.getBoundingClientRect();coinPos[c.id]=[r.left,r.top];send({t:'coin',ev,id:c.id});d.remove()});
+ $('coins').appendChild(d);tt(()=>d.remove(),c.life)}
+function coinFloat(m){const p=coinPos[m.id]||[innerWidth/2,innerHeight/2],f=document.createElement('div');f.className='cf';f.textContent=you&&you.owner?'🪙':'+'+m.xp;f.style.cssText=`left:${p[0]}px;top:${p[1]}px;font-size:${m.big?44:30}px`;$('coins').appendChild(f);setTimeout(()=>f.remove(),1000)}
 let sdBusy=false;
 function selfDestruct(){if(sdBusy)return;sdBusy=true;closeMenu();banner('⛔ Why would you even attempt that','red',3000);
  const R=document.documentElement,sd=$('sd'),fb=$('fb');
@@ -279,6 +327,6 @@ function openNameEdit(){const m=$('menu');m.style.display='block';
  m.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">Edit display name</h3><p>Your username <b>${esc(you.name)}</b> stays the same. This only changes the name other people see.</p><input id="dnm" maxlength="20" value="${esc(you.dn||you.name)}" style="width:100%" onkeydown="if(event.key=='Enter')saveName()"><p><button class="go" onclick="saveName()">Save</button> <button onclick="saveName(true)">Reset to username</button></p>`;$('dnm').focus()}
 function saveName(r){send({t:'setdisplay',text:r?'':$('dnm').value});closeMenu()}
 document.onclick=e=>{const m=$('menu');if(m.style.display=='block'){if(!m.contains(e.target)&&!e.target.closest('#env,#mrbtn,#idbtn,#inb'))closeMenu();return}
- const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner||you.mod)openMenu(n)};
+ const n=e.target.dataset&&e.target.dataset.n;if(!n||!you)return;if(n==you.name)return openNameEdit();if(you.owner||you.mod)openMenu(n);else openUserMenu(n)};
 $('menu').addEventListener('click',e=>e.stopPropagation());
 </script></body></html>
