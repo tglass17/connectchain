@@ -20,7 +20,7 @@ const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.n
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
-function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
+function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
 function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
@@ -86,7 +86,7 @@ function inboxAdd(name,acct,item){const c=find(name);let u=null;if(c&&c.acct===a
  const inb=u.inbox=u.inbox||[];inb.push({id:Date.now()*1000+Math.floor(Math.random()*1000),read:false,at:Date.now(),...item});if(inb.length>50)inb.splice(0,inb.length-50);
  if(acct)save();if(c&&c.acct===acct)send(c,{t:'inbox',unread:inb.filter(x=>!x.read).length,new:item.text})}
 function note(r,text){inboxAdd(r.name,true,{kind:'modreq',text})}
-function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct)pushRooms([c.u.name])}
+function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -110,6 +110,17 @@ async function botMove(c){const e=c.end;if(!e)return;const last=e.chain.at(-1);l
  if(c.end!==e)return;
  if(!pick){addEnd(e,ENDBONUS);e.chain=[startWord()];e.streak=0;e.turn='you';return esend(c,'🤖 The bot is stumped and could not find a word! +'+ENDBONUS+' bonus XP. New word!')}
  e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
+const fuser=n=>db.users[acctName(n)||''];
+const hasF=(u,n)=>(u.friends||[]).some(x=>lc(x)==lc(n));
+const friendView=u=>{const v=n=>({name:n,dn:dn(db.users[n]||{name:n})});return{friends:(u.friends||[]).map(v),inc:(u.fin||[]).map(v),out:(u.fout||[]).slice()}};
+function pushFriends(names){for(const x of online.values())if(x.acct&&x.u&&names.some(n=>lc(n)==lc(x.u.name)))send(x,{t:'friends',...friendView(x.u)})}
+function makeFriends(a,b){for(const[u,o]of[[a,b],[b,a]]){u.friends=u.friends||[];if(!hasF(u,o.name))u.friends.push(o.name);u.fin=(u.fin||[]).filter(x=>lc(x)!=lc(o.name));u.fout=(u.fout||[]).filter(x=>lc(x)!=lc(o.name))}}
+let evt=null,evtCool=0;const EV_START=4000,EV_DUR=15000,EV_COST=10000;
+function startEvent(by){const coins=[];let t=0,id=0;while(t<EV_DUR){const big=Math.random()<0.08;coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:14+Math.random()*78,life:big?2800:3500});t+=170+Math.random()*90}
+ let nb=coins.filter(c=>c.big).length;while(nb<4){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=2800;nb++}}
+ const e=evt={id:Date.now(),coinsAt:Date.now()+EV_START,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};evtCool=Date.now()+EV_START+EV_DUR+4500+60000;
+ const msg={t:'tevent',id:e.id,startIn:EV_START,coins};for(const x of online.values())send(x,msg);
+ setTimeout(()=>{if(evt===e)evt=null},EV_START+EV_DUR+4500)}
 const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canAnn=c=>c.u&&c.acct&&(c.u.owner||c.u.mod||c.u.alpha);
 const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
@@ -149,6 +160,26 @@ const handlers={
  unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
  setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ friends(c){if(c.acct)send(c,{t:'friends',...friendView(c.u)})},
+ friendreq(c,m){if(!c.acct)return flash(c,'Sign up for an account to add friends','bad');const tu=fuser(m.to);if(!tu)return flash(c,'You can only add players who have accounts','bad');if(tu===c.u||hasF(c.u,tu.name))return;
+  if((c.u.fin||[]).some(x=>lc(x)==lc(tu.name))){makeFriends(c.u,tu);save();inboxAdd(tu.name,true,{kind:'friend',text:'🤝 '+dn(c.u)+' accepted your friend request!'});pushFriends([c.u.name,tu.name]);return flash(c,'You are now friends with '+dn(tu)+'!','ok')}
+  if((c.u.fout||[]).some(x=>lc(x)==lc(tu.name)))return flash(c,'Friend request already sent','warn');
+  (c.u.fout=c.u.fout||[]).push(tu.name);(tu.fin=tu.fin||[]).push(c.u.name);save();
+  inboxAdd(tu.name,true,{kind:'friend',from:c.u.name,status:'pending',text:'👋 '+dn(c.u)+' sent you a friend request'});pushFriends([c.u.name,tu.name]);flash(c,'Friend request sent to '+dn(tu),'ok')},
+ friendresp(c,m){if(!c.acct)return;const fu=fuser(m.from);if(!fu||!(c.u.fin||[]).some(x=>lc(x)==lc(fu.name)))return;
+  for(const it of c.u.inbox||[])if(it.kind=='friend'&&it.from&&lc(it.from)==lc(fu.name)&&it.status=='pending')it.status=m.accept?'accepted':'declined';
+  if(m.accept){makeFriends(c.u,fu);inboxAdd(fu.name,true,{kind:'friend',text:'🤝 '+dn(c.u)+' accepted your friend request!'})}
+  else{c.u.fin=c.u.fin.filter(x=>lc(x)!=lc(fu.name));fu.fout=(fu.fout||[]).filter(x=>lc(x)!=lc(c.u.name))}
+  save();pushFriends([c.u.name,fu.name]);if(m.fromInbox)handlers.inbox(c)},
+ unfriend(c,m){if(!c.acct)return;const fu=fuser(m.name);if(!fu)return;c.u.friends=(c.u.friends||[]).filter(x=>lc(x)!=lc(fu.name));fu.friends=(fu.friends||[]).filter(x=>lc(x)!=lc(c.u.name));save();pushFriends([c.u.name,fu.name])},
+ spawnevent(c){if(!c.u?.owner||!c.acct)return;if(evt)return flash(c,'A token explosion is already running','warn');startEvent(c.u)},
+ buyevent(c){if(!c.u)return;if(c.u.owner)return flash(c,'You can spawn it free from the 🛠️ Tools button','ok');
+  if(evt||Date.now()<evtCool)return flash(c,'A token explosion just ran or is running. Try again in a bit.','warn');
+  if(c.u.bal<EV_COST||c.u.xp<EV_COST)return flash(c,'You need 10,000 XP to buy a Token Explosion','bad');
+  c.u.xp-=EV_COST;c.u.bal-=EV_COST;gain(c.u,-EV_COST);{const k=COLORS.find(x=>x[0]==c.u.color);if(k&&c.u.xp<k[1])c.u.color='white'}if(c.acct)save();send(c,{t:'me',me:me(c)});startEvent(c.u)},
+ coin(c,m){const e=evt;if(!e||m.ev!==e.id)return;const cn=e.coins.get(m.id|0);if(!cn)return;const now=Date.now()-e.coinsAt;if(now<cn.t-1500||now>cn.t+cn.life+2500)return;
+  const k=lc(c.u.name)+(c.acct?'':'#g'),set=e.claims[k]=e.claims[k]||new Set();if(set.has(cn.id)||Date.now()-(c.lastCoin||0)<60)return;c.lastCoin=Date.now();set.add(cn.id);
+  const xp=cn.big?100:10;addXp(c,xp);send(c,{t:'coinok',id:cn.id,xp,big:cn.big})},
  signout(c,m){if(m.tk&&c.u&&db.tokens[m.tk]===c.u.name){delete db.tokens[m.tk];save()}logout(c);send(c,{t:'loggedout'})},
  endstart(c){if(c.bt||c.watch||c.end)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
  async endsubmit(c,m){const e=c.end;if(!e||e.turn!=='you'||e.busy)return;const w=String(m.word||'').toLowerCase().trim();
@@ -221,9 +252,13 @@ const handlers={
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
-const types={'.html':'text/html','.js':'text/javascript','.css':'text/css'};
-const srv=http.createServer((q,r)=>{let f=path.join(__dirname,'public',q.url=='/'?'index.html':path.normalize(q.url).replace(/^(\.\.[\/\\])+/,''));
- fs.readFile(f,(e,d)=>{if(e){r.writeHead(404);return r.end('Not found')}r.writeHead(200,{'Content-Type':types[path.extname(f)]||'text/plain'});r.end(d)})});
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon'};
+const ASSETS=['projectile.png','projectexplosion.gif'];
+const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
+ const rel=u=='/'?'index.html':path.normalize(u).replace(/^(\.\.[\/\\])+/,'');
+ const nf=()=>{r.writeHead(404);r.end('Not found')};
+ const tryRead=(f,next)=>fs.readFile(f,(e,d)=>{if(e)return next();r.writeHead(200,{'Content-Type':types[path.extname(f)]||'text/plain'});r.end(d)});
+ tryRead(path.join(__dirname,'public',rel),()=>{const b=path.basename(rel);if(ASSETS.includes(b))tryRead(path.join(__dirname,b),nf);else nf()})});
 new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
  const c={ws,ip,u:null};if(bans[ip]>Date.now()){send(c,{t:'banned'});return ws.close()}
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
