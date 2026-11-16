@@ -180,6 +180,14 @@ const handlers={
  coin(c,m){const e=evt;if(!e||m.ev!==e.id)return;const cn=e.coins.get(m.id|0);if(!cn)return;const now=Date.now()-e.coinsAt;if(now<cn.t-1500||now>cn.t+cn.life+2500)return;
   const k=lc(c.u.name)+(c.acct?'':'#g'),set=e.claims[k]=e.claims[k]||new Set();if(set.has(cn.id)||Date.now()-(c.lastCoin||0)<60)return;c.lastCoin=Date.now();set.add(cn.id);
   const xp=cn.big?100:10;addXp(c,xp);send(c,{t:'coinok',id:cn.id,xp,big:cn.big})},
+ resetpw(c,m){if(!c.u?.owner||!c.acct)return;const u=fuser(m.to);if(!u||u.owner)return flash(c,'Only regular accounts can be reset','bad');
+  const pw=crypto.randomBytes(6).toString('base64url');u.salt=crypto.randomBytes(8).toString('hex');u.hash=hash(pw,u.salt);
+  for(const t of Object.keys(db.tokens))if(db.tokens[t]===u.name)delete db.tokens[t];
+  const o=find(u.name);if(o&&o.acct){logout(o);o.ws.close()}save();console.log('PASSWORD RESET for',u.name,'by',c.u.name);send(c,{t:'pwreset',name:u.name,pw})},
+ setpw(c,m){if(!c.acct||c.u.owner)return flash(c,'Only regular accounts can change their password here','bad');const np=String(m.np||'');
+  if(hash(String(m.old||''),c.u.salt)!==c.u.hash)return flash(c,'Current password is wrong','bad');if(np.length<6||np.length>64)return flash(c,'New password must be 6-64 characters','bad');
+  c.u.salt=crypto.randomBytes(8).toString('hex');c.u.hash=hash(np,c.u.salt);for(const t of Object.keys(db.tokens))if(db.tokens[t]===c.u.name)delete db.tokens[t];
+  const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=c.u.name;save();send(c,{t:'token',tk});flash(c,'Password changed!','ok')},
  signout(c,m){if(m.tk&&c.u&&db.tokens[m.tk]===c.u.name){delete db.tokens[m.tk];save()}logout(c);send(c,{t:'loggedout'})},
  endstart(c){if(c.bt||c.watch||c.end)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
  async endsubmit(c,m){const e=c.end;if(!e||e.turn!=='you'||e.busy)return;const w=String(m.word||'').toLowerCase().trim();
