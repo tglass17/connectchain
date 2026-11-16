@@ -180,6 +180,8 @@ const handlers={
  coin(c,m){const e=evt;if(!e||m.ev!==e.id)return;const cn=e.coins.get(m.id|0);if(!cn)return;const now=Date.now()-e.coinsAt;if(now<cn.t-1500||now>cn.t+cn.life+2500)return;
   const k=lc(c.u.name)+(c.acct?'':'#g'),set=e.claims[k]=e.claims[k]||new Set();if(set.has(cn.id)||Date.now()-(c.lastCoin||0)<60)return;c.lastCoin=Date.now();set.add(cn.id);
   const xp=cn.big?100:10;addXp(c,xp);send(c,{t:'coinok',id:cn.id,xp,big:cn.big})},
+ findacct(c,m){if(!c.u?.owner||!c.acct)return;const q=lc(String(m.q||'').trim()).slice(0,20);if(!q)return;
+  send(c,{t:'acctfound',list:Object.values(db.users).filter(u=>!u.owner&&(lc(u.name).includes(q)||lc(u.display||'').includes(q))).slice(0,8).map(u=>({name:u.name,dn:dn(u),xp:u.xp||0,online:!!find(u.name)}))})},
  resetpw(c,m){if(!c.u?.owner||!c.acct)return;const u=fuser(m.to);if(!u||u.owner)return flash(c,'Only regular accounts can be reset','bad');
   const pw=crypto.randomBytes(6).toString('base64url');u.salt=crypto.randomBytes(8).toString('hex');u.hash=hash(pw,u.salt);
   for(const t of Object.keys(db.tokens))if(db.tokens[t]===u.name)delete db.tokens[t];
