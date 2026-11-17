@@ -11,9 +11,9 @@ process.on('SIGTERM',()=>{flush();setTimeout(()=>process.exit(0),1500)});
 const hash=(p,s)=>crypto.scryptSync(p,s,32).toString('hex');
 const mk=(n,p)=>{const salt=crypto.randomBytes(8).toString('hex');return{name:n,salt,hash:hash(p,salt),xp:0,bal:0,mult:1,color:'white',tag:'',owner:n===OWNER}};
 function ensureOwner(){const pw=process.env.OWNER_PASSWORD;if(!pw)return;if(!db.users[OWNER]){db.users[OWNER]=mk(OWNER,pw);db.users[OWNER].tag='OWNER'}else db.users[OWNER].hash=hash(pw,db.users[OWNER].salt);save()}
-const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',2500],['purplehaze',7000]];
+const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000],['purplehaze',7000]];
 const SHOP={'1.5':500,'2':1000};
-const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train', 'tree'];
+const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit}};
@@ -86,7 +86,7 @@ function inboxAdd(name,acct,item){const c=find(name);let u=null;if(c&&c.acct===a
  const inb=u.inbox=u.inbox||[];inb.push({id:Date.now()*1000+Math.floor(Math.random()*1000),read:false,at:Date.now(),...item});if(inb.length>50)inb.splice(0,inb.length-50);
  if(acct)save();if(c&&c.acct===acct)send(c,{t:'inbox',unread:inb.filter(x=>!x.read).length,new:item.text})}
 function note(r,text){inboxAdd(r.name,true,{kind:'modreq',text})}
-function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}}
+function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}if(isMod(c))send(c,{t:'reports',list:reportList(c)})}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -121,6 +121,9 @@ function startEvent(by){const coins=[];let t=0,id=0;while(t<EV_DUR){const big=Ma
  const e=evt={id:Date.now(),coinsAt:Date.now()+EV_START,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};evtCool=Date.now()+EV_START+EV_DUR+4500+60000;
  const msg={t:'tevent',id:e.id,startIn:EV_START,coins};for(const x of online.values())send(x,msg);
  setTimeout(()=>{if(evt===e)evt=null},EV_START+EV_DUR+4500)}
+const RCATS=['player','name','chat','bug','other'];
+const reportList=c=>db.reports.slice(-100).filter(r=>c.u.owner||!r.tmod).map(r=>({id:r.id,by:r.by,byDn:r.byDn,target:r.target,tdn:r.tdn,cat:r.cat,text:r.text,ctx:r.ctx,at:r.at,status:r.status}));
+const pushReports=()=>{for(const x of online.values())if(isMod(x))send(x,{t:'reports',list:reportList(x)})};
 const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canAnn=c=>c.u&&c.acct&&(c.u.owner||c.u.mod||c.u.alpha);
 const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
@@ -159,7 +162,7 @@ const handlers={
  ban(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!canHit(c,t.u))return;let mins=Math.floor(+m.mins)||0;mins=mins<=0?0:Math.min(mins,525600);const k=t.u.name.toLowerCase();db.bans[k]={until:mins?Date.now()+mins*6e4:0,reason:String(m.reason||'').slice(0,80),by:dn(c.u)};save();console.log('BAN',t.u.name,'by',c.u.name,'mins',mins);if(t.c){send(t.c,banMsg(db.bans[k]));setTimeout(()=>t.c.ws.close(),300)}send(c,{t:'flash',text:t.u.name+' banned',kind:'ok'})},
  unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
- setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
+ setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(t.u.mod)send(t.c,{t:'reports',list:reportList(t.c)})}lobby()},
  friends(c){if(c.acct)send(c,{t:'friends',...friendView(c.u)})},
  friendreq(c,m){if(!c.acct)return flash(c,'Sign up for an account to add friends','bad');const tu=fuser(m.to);if(!tu)return flash(c,'You can only add players who have accounts','bad');if(tu===c.u||hasF(c.u,tu.name))return;
   if((c.u.fin||[]).some(x=>lc(x)==lc(tu.name))){makeFriends(c.u,tu);save();inboxAdd(tu.name,true,{kind:'friend',text:'🤝 '+dn(c.u)+' accepted your friend request!'});pushFriends([c.u.name,tu.name]);return flash(c,'You are now friends with '+dn(tu)+'!','ok')}
@@ -190,6 +193,18 @@ const handlers={
   if(hash(String(m.old||''),c.u.salt)!==c.u.hash)return flash(c,'Current password is wrong','bad');if(np.length<6||np.length>64)return flash(c,'New password must be 6-64 characters','bad');
   c.u.salt=crypto.randomBytes(8).toString('hex');c.u.hash=hash(np,c.u.salt);for(const t of Object.keys(db.tokens))if(db.tokens[t]===c.u.name)delete db.tokens[t];
   const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=c.u.name;save();send(c,{t:'token',tk});flash(c,'Password changed!','ok')},
+ report(c,m){const cat=RCATS.includes(m.cat)?m.cat:'other';let text=String(m.text||'').trim().slice(0,500);if(text.length<10)return flash(c,'Please describe the problem (10+ characters)','bad');
+  if(Date.now()-(c.lastReport||0)<30000)return flash(c,'Please wait a bit before sending another report','warn');
+  const raw=String(m.target||'').trim().slice(0,20);let target='',tu=null;
+  if(/^[A-Za-z0-9_]{1,20}$/.test(raw)){const k=acctName(raw),o=find(raw);tu=k?db.users[k]:(o?o.u:null);target=tu?tu.name:raw}else if(raw)text=('(Mentioned: '+raw+') '+text).slice(0,520);
+  if(tu&&tu===c.u)return flash(c,"You can't report yourself",'bad');
+  if(db.reports.filter(r=>r.by===c.u.name&&r.status==='open').length>=10)return flash(c,'You already have 10 open reports. Thanks!','warn');
+  const cx=m.ctx&&typeof m.ctx==='object'?{room:String(m.ctx.room||'').slice(0,40),msg:String(m.ctx.msg||'').slice(0,200)}:null;
+  c.lastReport=Date.now();db.reports.push({id:Date.now()*1000+Math.floor(Math.random()*1000),by:c.u.name,byDn:dn(c.u),byAcct:!!c.acct,target,tdn:tu?dn(tu):target,tmod:!!(tu&&(tu.mod||tu.owner)),cat,text,ctx:cx,at:Date.now(),status:'open'});
+  if(db.reports.length>300)db.reports=db.reports.slice(-300);save();pushReports();flash(c,'Report sent. Thank you!','ok')},
+ reports(c){if(isMod(c))send(c,{t:'reports',list:reportList(c)})},
+ reportdone(c,m){if(!isMod(c))return;const r=db.reports.find(x=>x.id===m.id);if(!r||r.status!=='open'||(r.tmod&&!c.u.owner))return;r.status='resolved';r.by2=dn(c.u);save();
+  if(r.byAcct)inboxAdd(r.by,true,{kind:'report',text:'✅ Thanks! Your report'+(r.target?' about '+r.tdn:'')+' was reviewed by the team.'});pushReports()},
  signout(c,m){if(m.tk&&c.u&&db.tokens[m.tk]===c.u.name){delete db.tokens[m.tk];save()}logout(c);send(c,{t:'loggedout'})},
  endstart(c){if(c.bt||c.watch||c.end)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
  async endsubmit(c,m){const e=c.end;if(!e||e.turn!=='you'||e.busy)return;const w=String(m.word||'').toLowerCase().trim();
@@ -274,5 +289,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
