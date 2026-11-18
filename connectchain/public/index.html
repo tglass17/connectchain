@@ -24,14 +24,15 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 #flash.show{opacity:1;transition:none}.bad{color:#dc2626}.warn{color:#d97706}.ok{color:#15803d}
 #req{position:fixed;top:90px;right:20px;background:#fff;padding:18px;border-radius:16px;box-shadow:0 6px 24px #0004;display:none;z-index:40;font-size:22px;width:320px}
 #bar{height:8px;background:#22c55e;border-radius:4px;margin-top:12px}@keyframes drain{from{width:100%}to{width:0}}
-#ov{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;color:#fff;font-size:180px}
+#ov{pointer-events:none;position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;color:#fff;font-size:180px}
 #menu{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,92vw);max-height:90vh;overflow:auto;background:#fff;padding:18px;border-radius:16px;display:none;z-index:80;box-shadow:0 8px 40px #0007}
 .sw{display:inline-block;width:30px;height:30px;border-radius:8px;margin:3px;cursor:pointer;border:2px solid #0003;vertical-align:middle}
 .stage{container-type:inline-size;aspect-ratio:16/9;width:100%;max-width:1200px;margin:0 auto;background:#f0fdf4;border-radius:24px;overflow:hidden}
 .sin{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;padding:2cqw;text-align:center}
 .sh{font-size:3cqw}.sv{font-size:4cqw}.sc{display:flex;flex-wrap:nowrap;gap:1.2cqw;justify-content:center;align-items:center;font-size:4cqw;height:7cqw;max-width:96cqw;overflow:hidden}.sc .chip{padding:.8cqw 2cqw;border-radius:1.6cqw}
 .st{font-size:3cqw}.sy{font-size:2.8cqw;background:#fff;border-radius:2cqw;padding:1.4cqw 3cqw;min-width:50cqw}.sf{font-size:2.2cqw;height:5cqw;overflow:hidden}.sb{font-size:2.4cqw;padding:1cqw 3cqw;border-radius:1.6cqw}
-.nm{cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
+#pgc{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:38px;min-height:80px;margin:20px 0}#pgw{font-size:32px;width:min(700px,92%);text-align:center;border:3px solid #16a34a;margin:10px 0}#pgp,#ptpub,#ptmem{max-width:520px;margin:0 auto;text-align:left}#party button:disabled{opacity:.5;cursor:not-allowed}
+.nm{cursor:pointer}.pen{height:24px;width:auto;vertical-align:middle;image-rendering:pixelated;cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
 .c-blueg,.c-redorangeg,.c-greenhaze,.c-purplehaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
 .c-blueg{background-image:linear-gradient(90deg,#2563eb,#06b6d4,#2563eb)}.c-redorangeg{background-image:linear-gradient(90deg,#dc2626,#fb923c,#dc2626)}
 .c-greenhaze{background-image:linear-gradient(90deg,#14532d,#4ade80,#166534,#86efac,#14532d)}
@@ -90,10 +91,11 @@ html.bh-hide body>*:not(#bhlayer):not(#bhdim):not(#bhblock):not(#coins):not(#tel
 <div id="spectate" class="stage" style="display:none"><div class="sin"><div class="sh">👁 Watching a match</div><div id="svs" class="sv"></div><div id="slife" style="font-size:2cqw"></div><div id="schain" class="sc"></div><div id="sturn" class="st"></div><div id="styp" class="sy"></div><div id="sfeed" class="sf"></div><button class="sb" onclick="stopWatch()">Back to lobby</button></div></div>
 <div id="endless" style="display:none"><h2 style="margin-top:0">♾️ Endless Mode</h2><div id="enst" style="font-size:22px"></div><div id="enchain"></div><div id="enmsg" style="font-size:24px;min-height:36px"></div>
 <input id="enw" placeholder="your word..." autocomplete="off" disabled><br><button class="go" onclick="endSub()">Go</button> <button class="no" onclick="endStop()">⏹ Stop</button> <button id="endback" style="display:none" onclick="endBack()">Back to lobby</button></div>
+<div id="party" style="display:none"><div id="ptl"></div><div id="ptr" style="display:none"></div><div id="ptg" style="display:none"><h2 style="margin-top:0">🎉 Multiplayer Game</h2><div id="pgp"></div><div id="pgc"></div><div id="pgt" style="font-size:24px"></div><div id="pgturn" style="font-size:24px;margin:12px"></div><div id="pgmsg" class="bad" style="font-size:20px;min-height:28px"></div><input id="pgw" placeholder="wait for your turn..." autocomplete="off" disabled><br><button class="go" onclick="ptSub()">Go</button> <button class="no" onclick="ptLeaveBtn()">Leave game</button><div style="font-size:26px;margin-top:16px;padding:14px;background:#f0fdf4;border-radius:14px;min-height:60px">Typing: <span id="pgopp" style="color:#15803d"></span></div></div></div>
 <div id="arena" style="display:none"><div id="vs"></div><div id="alife"></div><div id="chain"></div><div id="turn"></div>
-<input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="send({t:'forfeit'})">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
+<input id="word" placeholder="type your word..." autocomplete="off" disabled><br><button class="go" onclick="sub()">Go</button> <button class="no" onclick="forfeit()">Forfeit</button> <button id="back" style="display:none" onclick="back()">Back to lobby</button>
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
-<div><div class="panel" id="endp"><button class="go" onclick="endStart()" style="width:100%">♾️ Endless Mode</button><small>Play against a bot, then press Stop to collect your XP.</small></div>
+<div><div class="panel" id="endp"><button class="go" onclick="endStart()" style="width:100%">♾️ Endless Mode</button><small>Play against a bot, then press Stop to collect your XP.</small><button class="go" onclick="partyOpen()" style="width:100%;margin-top:16px">🎉 Multiplayer Mode</button><small>Play with up to 6 players.</small></div>
 <div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
 <div class="panel" id="lbp" style="display:none"><h2 style="margin-top:0">🏆 Leaderboard</h2><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
@@ -112,19 +114,19 @@ function toast(t,k){const f=$('flash');f.textContent=t;f.className='show '+(k||'
 function send(o){if(ws&&ws.readyState==1){ws.send(JSON.stringify(o));return true}toast('Still connecting… the server may be waking up, wait about 30 seconds.','warn');return false}
 function conn(){ws=new WebSocket(location.origin.replace('http','ws'));
  ws.onopen=()=>{$('conn').textContent='● online';if(localStorage.cctk){$('past').style.display='';ws.send(JSON.stringify({t:'resume',tk:localStorage.cctk}))}else if(localStorage.ccguest){autoGuest=true;ws.send(JSON.stringify({t:'guest',name:localStorage.ccguest}))}};
- ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;$('env').style.display='none';$('inb').style.display='none';$('lob').style.display='none';$('frb').style.display='none';$('tools').style.display='none';$('rpts').style.display='none';$('lev').style.display='none';teAbort();inUnread=0;curRoom=null;$('chat').style.display='none';$('endless').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
+ ws.onmessage=e=>on(JSON.parse(e.data));ws.onclose=()=>{if(isBanned)return;you=null;live=false;myTurn=false;ptReset();$('ov').style.display='none';$('arena').style.display='none';$('spectate').style.display='none';$('welcome').style.display='';$('env').style.display='none';$('inb').style.display='none';$('lob').style.display='none';$('frb').style.display='none';$('tools').style.display='none';$('rpts').style.display='none';$('lev').style.display='none';teAbort();inUnread=0;curRoom=null;$('chat').style.display='none';$('endless').style.display='none';$('out').style.display='';$('me').innerHTML='';$('conn').textContent='● reconnecting…';setTimeout(conn,2000)}}conn();
 const guest=()=>send({t:'guest',name:$('gname').value.trim()}),acct=t=>send({t,name:$('an').value.trim(),pass:$('ap').value}),past=()=>send({t:'resume',tk:localStorage.cctk});
 $('gname').onkeydown=e=>{if(e.key=='Enter')guest()};
 function nm(u){const o=u.owner,t=u.tag?`<span class="tag" style="background-image:linear-gradient(90deg,${o?ot.c1:(u.tc1||'#ddd')},${o?ot.c2:(u.tc2||'#aaa')},${o?ot.c1:(u.tc1||'#ddd')})">${esc(u.tag)}</span>`:'';
  return (u.mod?'🛡️':'')+`<span class="nm ${o?((u.color&&u.color!='white'&&u.color!='ownerrainbow')?'c-'+u.color+' glow':'owner'):'c-'+u.color}" data-n="${esc(u.name)}">${esc(u.dn||u.name)}</span>${t}`}
 const xpOf=u=>u.owner?'∞':u.xp;
-function chall(n){if(send({t:'challenge',to:n}))toast('Request sent to '+((lastList.find(x=>x.name==n)||{}).dn||n)+' — waiting up to 20 seconds…','ok')}
+function chall(n){if(partyOn)return toast('Leave Multiplayer first','warn');if(send({t:'challenge',to:n}))toast('Request sent to '+((lastList.find(x=>x.name==n)||{}).dn||n)+' — waiting up to 20 seconds…','ok')}
 function showReq(from,d){$('reqname').textContent=d||from;$('req').dataset.from=from;$('req').style.display='block';const b=$('bar');b.style.animation='none';void b.offsetWidth;b.style.animation='drain 20s linear forwards';clearTimeout(reqT);reqT=setTimeout(hideReq,20000)}
 function hideReq(){$('req').style.display='none';clearTimeout(reqT)}
 function reply(t){send({t,from:$('req').dataset.from});hideReq()}
 function countdown(opp){$('spectate').style.display='none';$('endless').style.display='none';$('welcome').style.display='none';$('arena').style.display='';$('back').style.display='none';$('vs').innerHTML='You vs '+nm(opp);$('chain').innerHTML='';$('turn').textContent='Get ready!';$('word').value='';$('word').disabled=true;$('opp').textContent='';
  const ov=$('ov');ov.style.display='flex';let n=3;ov.textContent=n;const iv=setInterval(()=>{n--;ov.textContent=n>0?n:'GO!';if(n<0){clearInterval(iv);ov.style.display='none'}},1000)}
-function watch(n){$('sfeed').innerHTML='';send({t:'watch',who:n})}
+function watch(n){if(partyOn)return toast('Leave Multiplayer first','warn');$('sfeed').innerHTML='';send({t:'watch',who:n})}
 function stopWatch(){send({t:'unwatch'});$('spectate').style.display='none';$('welcome').style.display=''}
 function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.repeat(m.lives[0])} &nbsp; vs &nbsp; ${nm(b)} ${'❤️'.repeat(m.lives[1])}`;
  $('schain').innerHTML=m.chain.slice(-4).map(w=>`<span class="chip">${esc(w)}</span>`).join('<span>→</span>');
@@ -132,13 +134,52 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
  $('slife').innerHTML=you&&you.owner?`<button class="sb" onclick="addLife(0)">+1 ❤️ ${esc(a.dn||a.name)}</button> <button class="sb" onclick="addLife(1)">+1 ❤️ ${esc(b.dn||b.name)}</button>`:'';
  $('styp').innerHTML=`<div>${nm(a)}: <span id="styp0"></span></div><div>${nm(b)}: <span id="styp1"></span></div>`}
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
+function forfeit(){if(send({t:'forfeit'}))$('turn').textContent='Forfeiting…'}
+/* ===== Multiplayer mode ===== */
+let partyOn=false,ptWant=false,pst=null,pEnd=0,plist=[],pCreate=false;
+function partyOpen(){if(!you)return toast('Log in or pick a username first','warn');if(live)return toast('Finish your battle first','warn');
+ if($('endless').style.display!='none')return toast('Stop endless mode first','warn');
+ if($('spectate').style.display!='none')stopWatch();
+ if($('req').style.display=='block')reply('deny');
+ if(partyOn)return;ptWant=true;if(!send({t:'plobby',on:true}))ptWant=false}
+function ptOpenView(){partyOn=true;pst=null;pCreate=false;['welcome','arena','spectate','endless'].forEach(i=>$(i).style.display='none');$('party').style.display='';ptRender()}
+function partyClose(){send({t:'plobby',on:false});partyOn=false;pst=null;$('party').style.display='none';$('welcome').style.display=''}
+function ptReset(){partyOn=false;ptWant=false;pst=null;$('party').style.display='none'}
+function ptRender(){const L=$('ptl'),R=$('ptr'),G=$('ptg');
+ if(!pst){L.style.display='';R.style.display='none';G.style.display='none';renderPtl();return}
+ L.style.display='none';
+ if(pst.state=='lobby'){R.style.display='';G.style.display='none';renderPtr()}else{R.style.display='none';G.style.display='';renderPtg()}}
+function renderPtl(){const L=$('ptl');
+ if(!L.dataset.init){L.dataset.init=1;L.innerHTML=`<h2 style="margin-top:0">🎉 Multiplayer Lobby</h2><p style="font-size:20px">Word chain with up to 6 players — last one standing wins. Create a game or join one!</p><div id="ptcr"></div><div style="margin:16px 0"><input id="ptcode" maxlength="5" placeholder="private code" autocomplete="off" style="width:190px;text-transform:uppercase;text-align:center" onkeydown="if(event.key=='Enter')ptJoinCode()"> <button class="go" onclick="ptJoinCode()">Join with code</button></div><h3 style="margin:10px 0">Public games</h3><div id="ptpub"></div><br><button onclick="partyClose()">⬅ Back</button>`}
+ renderCr();renderPub()}
+function renderCr(){const e=$('ptcr');if(!e)return;e.innerHTML=pCreate?`<div style="background:#f0fdf4;border-radius:14px;padding:12px;margin:10px auto;max-width:520px"><label style="font-size:20px;cursor:pointer"><input type="checkbox" id="ptpriv" style="width:22px;height:22px;vertical-align:middle"> 🔒 Private (join by code only)</label><p style="margin:8px 0"><small>Leave this off and your game will show in the public list for everyone.</small></p><button class="go" onclick="ptCreate()">Create game</button> <button onclick="pCreate=false;renderCr()">Cancel</button></div>`:`<button class="go" onclick="pCreate=true;renderCr()">➕ Create a Multiplayer Game</button>`}
+function renderPub(){const e=$('ptpub');if(!e)return;e.innerHTML=plist.length?plist.map(g=>`<div class="row"><span>${nm(g.host)}'s game <small>${g.count}/${g.max} players</small></span><button class="go" ${g.count>=g.max?'disabled':''} onclick="send({t:'pjoin',id:'${esc(g.id)}'})">${g.count>=g.max?'Full':'Join'}</button></div>`).join(''):'<small>No public games right now. Create one!</small>'}
+function ptCreate(){const c=$('ptpriv');send({t:'pcreate',priv:!!(c&&c.checked)})}
+function ptJoinCode(){const v=$('ptcode').value.trim();if(!v)return toast('Type the code first','warn');send({t:'pjoin',code:v})}
+function ptLeaveBtn(){if(pst&&pst.state=='playing'&&!confirm('Leave the game? You will be eliminated.'))return;send({t:'pleave'})}
+function renderPtr(){const p=pst,host=p.host==you.name,n=p.members.length,r=p.result;
+ $('ptr').innerHTML=`<h2 style="margin-top:0">🎉 Multiplayer Game</h2>`+
+ (r?`<div style="background:#fef9c3;border-radius:14px;padding:12px;margin:10px auto;max-width:520px;font-size:22px">${r.winner?`🏆 <b>${esc(r.winner)}</b> won the last game!${r.name==you.name&&r.xp?` +${r.xp} XP`:''}`:'Game over'}${r.msg?`<br><small>${esc(r.msg)}</small>`:''}</div>`:'')+
+ (p.priv?`<p style="font-size:20px;margin:6px">🔒 Private game — share this code:</p><div style="font-size:46px;letter-spacing:8px;background:#f0fdf4;border-radius:14px;padding:6px 20px;display:inline-block;user-select:all">${esc(p.code)}</div>`:`<p style="font-size:20px">🌐 Public game — anyone can join from the lobby</p>`)+
+ `<h3 style="margin:14px 0 6px">Players ${n}/${p.max}</h3><div id="ptmem">${p.members.map(x=>`<div class="row"><span>${x.name==p.host?'👑 ':''}${nm(x)}</span></div>`).join('')}</div><br>`+
+ (host?`<button class="go" ${n<2?'disabled':''} onclick="send({t:'pstart'})">▶ Start game</button>${n<2?'<br><small>You need at least 2 players to start.</small>':''}`:'<p style="font-size:20px">⏳ Waiting for the host to start…</p>')+
+ `<br><br><button class="no" onclick="ptLeaveBtn()">Leave</button>`}
+function renderPtg(){const p=pst,me=p.members.find(x=>x.name==you.name)||{},cur=p.members.find(x=>x.name==p.turn)||{},mine=p.turn==you.name&&!me.out,w=$('pgw'),was=!w.disabled;
+ $('pgp').innerHTML=p.members.map(x=>`<div class="row" style="${x.out?'opacity:.4;':''}${x.name==p.turn?'background:#dcfce7;border-radius:10px;padding:4px 8px':''}"><span>${x.name==p.turn?'👉 ':''}${nm(x)}${x.left?' <small>(left)</small>':''}</span><span>${x.out?'☠':'❤️'.repeat(x.lives)}</span></div>`).join('');
+ $('pgc').innerHTML=p.chain.slice(-6).map(x=>`<span class="chip">${esc(x)}</span>`).join('<span>→</span>');
+ $('pgturn').textContent=me.out?'☠ You are out — watching the rest':mine?'YOUR TURN — type a word that connects!':(cur.dn||cur.name||'')+"'s turn…";
+ $('pgmsg').textContent=p.msg||'';w.disabled=!mine;w.placeholder=mine?'type your word...':'wait for your turn...';
+ if(!mine)$('pgopp').textContent='';if(mine&&!was)w.focus()}
+function ptSub(){const w=$('pgw');if(!pst||pst.state!='playing'||w.disabled)return;const v=w.value.trim();if(!v)return;send({t:'psubmit',word:v});w.value='';send({t:'ptype',text:''})}
+$('pgw').oninput=e=>send({t:'ptype',text:e.target.value});$('pgw').onkeydown=e=>{if(e.key=='Enter')ptSub()};
+setInterval(()=>{if(partyOn&&pst&&pst.state=='playing'){const s=Math.max(0,Math.ceil((pEnd-Date.now())/1000)),t=$('pgt');t.textContent='⏱ '+s+'s';t.style.color=s<=10?'#dc2626':''}},250);
 function on(m){
  if(m.t=='me'){you=m.me;autoGuest=false;if(you.account)localStorage.removeItem('ccguest');else{localStorage.ccguest=you.name;localStorage.removeItem('cctk')}if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('inb').style.display='';$('lob').style.display='';$('frb').style.display=you.account?'':'none';inbUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('rpts').style.display=(you.owner||you.mod)?'':'none';rptUpdate();$('lev').style.display=(you.lev&&!you.owner)?'':'none';$('colbox').style.display='';
-  $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name"><a href="pixil-frame-0.png"</a></span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
+  $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name"><img class="pen" data-n="${esc(you.name)}" src="pixil-frame-0.png" alt="Edit" onerror="this.replaceWith(document.createTextNode('✏️'))"></span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=[...(you.owner?[['ownerrainbow',0]]:[]),...colors.filter(c=>(you.owner||you.xp>=c[1])&&!(you.owner&&c[0]=='white'))].map(c=>`<option value="${c[0]}" ${(c[0]==you.color||(you.owner&&c[0]=='ownerrainbow'&&you.color=='white'))?'selected':''}>${CN[c[0]]||c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none';if(localStorage.ccguest)send({t:'guest',name:localStorage.ccguest})}
  if(m.t=='token')localStorage.cctk=m.tk;
- if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small>${u.away?' <small style="color:#6b7280">(Not Active)</small>':''}</span>${you&&u.name!=you.name?(u.endless?'<small>♾️ endless</small>':u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
+ if(m.t=='lobby'){ot=m.ownerTag;lastList=m.list;$('list').innerHTML=m.list.map(u=>`<div class="row"><span>${nm(u)} <small>${xpOf(u)}</small>${u.away?' <small style="color:#6b7280">(Not Active)</small>':''}</span>${you&&u.name!=you.name?(u.endless?'<small>♾️ endless</small>':u.party?'<small>🎉 multiplayer</small>':u.busy?`<small>in battle</small> <button onclick="watch('${esc(u.name)}')">👁 Watch</button>`:`<button class="go" onclick="chall('${esc(u.name)}')">Battle!</button>`):''}</div>`).join('')}
  if(m.t=='flash'){toast(m.text,m.kind);if(autoGuest&&!you&&m.kind=='bad'){localStorage.removeItem('ccguest');autoGuest=false}}
  if(m.t=='challenge')showReq(m.from,m.dn);
  if(m.t=='chalgone'&&$('req').dataset.from==m.from)hideReq();
@@ -181,6 +222,11 @@ function on(m){
  if(m.t=='specmsg'){const f=$('sfeed');f.insertAdjacentHTML('afterbegin',`<div class="bad">${esc(m.text)}</div>`);while(f.children.length>3)f.lastChild.remove()}
  if(m.t=='specover')$('sturn').textContent='🏁 '+m.winner+' won the match!';
  if(m.t=='opptype')$('opp').textContent=m.text;
+ if(m.t=='plist'){plist=m.list;if(ptWant){ptWant=false;ptOpenView()}else if(partyOn&&!pst)renderPub()}
+ if(m.t=='party'&&partyOn){pst=m;pEnd=Date.now()+m.ms;ptRender()}
+ if(m.t=='pgone'&&partyOn){pst=null;ptRender()}
+ if(m.t=='ptyping'){const e=$('pgopp');if(e)e.textContent=m.text}
+ if(m.t=='nobattle'){live=false;myTurn=false;$('alife').innerHTML='';$('word').disabled=true;$('ov').style.display='none';back();toast('That match is no longer running','warn')}
  if(m.t=='over'){live=false;$('alife').innerHTML='';$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
  if(m.t=='banned'){isBanned=true;document.body.innerHTML=`<h1 style="padding:40px">⛔ You are banned${m.manual?(m.until?' until '+new Date(m.until).toLocaleString():' permanently'):' for 10 minutes for using bad words'}.${m.reason?'<br>Reason: '+esc(m.reason):''}</h1>`}}
 function sub(){if(!live)return;if(!myTurn)return toast("Wait for your turn!",'warn');send({t:'submit',word:$('word').value});$('word').value='';send({t:'typing',text:''})}
@@ -238,7 +284,7 @@ const inbUpdate=()=>{$('inbn').innerHTML=inUnread?`<span class="bdg">${inUnread}
 const openInbox=()=>send({t:'inbox'});
 function renderInbox(L){showReqs=false;const mm=$('menu');mm.style.display='block';
  mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">📬 Inbox</h3>`+(L.length?L.map(x=>`<div style="border-radius:12px;padding:10px;margin:8px 0;background:${x.read?'#f3f4f6':'#dcfce7'}"><small>${({idea:'Update idea',modreq:'Mod request',room:'Chatroom',friend:'Friend',report:'Report'})[x.kind]||'Message'} · ${ago(x.at)}${x.read?'':' · new'}</small><p style="margin:4px 0">${esc(x.text)}</p>${x.kind=='friend'&&x.status=='pending'?`<button class="go" onclick="friendRespInbox('${esc(x.from)}',true)">Accept</button> <button class="no" onclick="friendRespInbox('${esc(x.from)}',false)">Decline</button>`:(x.kind=='friend'&&x.status?`<small>${x.status}</small>`:'')}</div>`).join(''):'Nothing here yet. Replies to your mod requests and update ideas show up here.')}
-function endStart(){if(!you)return toast('Log in or pick a username first','warn');send({t:'endstart'})}
+function endStart(){if(!you)return toast('Log in or pick a username first','warn');if(partyOn)return toast('Leave Multiplayer first','warn');send({t:'endstart'})}
 function endStop(){send({t:'endstop'})}
 function endSub(){const w=$('enw').value.trim();if(!w||$('enw').disabled)return;send({t:'endsubmit',word:w});$('enw').value=''}
 function endBack(){$('endless').style.display='none';$('welcome').style.display=''}
@@ -299,7 +345,7 @@ function doScare(n){const d=scareData||localStorage.scareImg,cur=lastList.find(x
 function doLogout(){if(live&&!confirm('You are in a battle. Logging out will forfeit it. Log out anyway?'))return;send({t:'signout',tk:localStorage.cctk})}
 function loggedOut(){localStorage.removeItem('cctk');teAbort();localStorage.removeItem('ccguest');$('past').style.display='none';you=null;live=false;myTurn=false;closeMenu();closeChat();hideReq();
  $('out').style.display='';$('me').innerHTML='';['inb','lob','frb','tools','rpts','lev','env','shop','lbp'].forEach(i=>$(i).style.display='none');
- ['arena','spectate','endless','pollbox'].forEach(i=>$(i).style.display='none');$('welcome').style.display='';
+ ['arena','spectate','endless','pollbox','party'].forEach(i=>$(i).style.display='none');ptReset();$('welcome').style.display='';
  $('list').textContent='Log in to see who is online';lastList=[];rooms=[];srUpdate();reqs=[];ideas=[];inUnread=0;inbUpdate();$('gname').value='';$('ap').value='';toast('Logged out','ok')}
 const frUpdate=()=>{const n=friendsData.inc.length;$('frn').innerHTML=n?`<span class="bdg">${n}</span>`:''};
 function friendBlock(n){const cur=lastList.find(x=>x.name==n)||{};
