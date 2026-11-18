@@ -20,11 +20,11 @@ const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.n
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
-function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
+function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,party:!!c.plob,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
 function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
-function logout(c){if(c.end)finishEnd(c,false);if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null;lobby()}
+function logout(c){if(c.end)finishEnd(c,false);if(c.party)ptLeave(c);c.plob=false;if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null;lobby()}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
 const KINDS=[['rel_trg',300],['rel_bga',150],['rel_bgb',150],['ml',60],['rel_syn',60],['rel_gen',60],['rel_spc',60],['rel_com',60],['rel_par',60]];
@@ -133,6 +133,46 @@ const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
 const banInfo=n=>{const k=String(n||'').toLowerCase(),b=db.bans[k];if(!b)return null;if(b.until&&b.until<Date.now()){delete db.bans[k];save();return null}return b};
 const banMsg=b=>({t:'banned',manual:true,reason:b.reason||'',until:b.until||0});
 const blocked=(c,n)=>{const b=banInfo(n);if(!b)return false;send(c,banMsg(b));setTimeout(()=>c.ws.close(),300);return true};
+// ===== Multiplayer (party) mode: up to 6 players, host starts, 3 lives each, last one standing wins =====
+const parties=new Map(),PMAX=6,PLIVES=3,PTURN=30000;
+const ptCode=()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s;do{s='';for(let i=0;i<5;i++)s+=A[crypto.randomInt(A.length)]}while([...parties.values()].some(p=>p.code===s));return s};
+const ptList=()=>[...parties.values()].filter(p=>!p.priv&&p.state==='lobby').map(p=>({id:p.id,host:pub(p.host.u),count:p.m.length,max:PMAX}));
+function ptSendList(){const l=ptList();for(const x of online.values())if(x.plob&&!x.party)send(x,{t:'plist',list:l})}
+function ptPush(p){const cur=p.state==='playing'?p.m[p.turn]:null;
+ const o={t:'party',id:p.id,priv:p.priv,code:p.priv?p.code:'',host:p.host.u.name,max:PMAX,state:p.state,
+  members:p.m.map(x=>({...pub(x.u),lives:x.lives,out:!!x.out,left:!!x.left})),chain:p.chain,turn:cur?cur.u.name:'',
+  ms:cur?Math.max(0,p.deadline-Date.now()):0,msg:p.msg||'',result:p.result||null};
+ for(const x of p.m)if(!x.left)send(x.c,o)}
+function ptDelete(p){clearTimeout(p.tm);p.tok++;parties.delete(p.id);ptSendList()}
+const ptNext=(p,i)=>{const n=p.m.length;for(let k=1;k<=n;k++){const j=(i+k)%n;if(!p.m[j].out)return j}return i};
+function ptTimer(p){clearTimeout(p.tm);const tok=++p.tok;p.deadline=Date.now()+PTURN;
+ p.tm=setTimeout(()=>{if(p.state!=='playing'||p.tok!==tok)return;const cur=p.m[p.turn];if(cur)ptLose(p,cur,dn(cur.u)+' ran out of time!')},PTURN)}
+function ptStartGame(p){p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=false});p.chain=[startWord()];p.turn=Math.random()*p.m.length|0;ptTimer(p);ptPush(p);ptSendList();lobby()}
+function ptFinish(p,w){clearTimeout(p.tm);p.tok++;p.state='lobby';let xp=0;
+ if(w&&!w.left&&w.c.u){xp=Math.round(100*w.u.mult);addXp(w.c,xp)}
+ p.result={winner:w?dn(w.u):null,name:w?w.u.name:'',xp:w&&!w.u.owner?xp:0,msg:p.msg||''};
+ p.m=p.m.filter(x=>!x.left);if(!p.m.length)return ptDelete(p);
+ if(!p.m.includes(p.host))p.host=p.m[0];
+ p.chain=[];ptPush(p);ptSendList();lobby()}
+function ptLose(p,cur,msg){cur.lives--;if(cur.lives<=0)cur.out=true;p.msg=msg+(cur.out?' ☠ Eliminated!':'');
+ const live=p.m.filter(x=>!x.out);if(live.length<=1)return ptFinish(p,live[0]||null);
+ p.chain=[startWord()];p.turn=ptNext(p,p.turn);ptTimer(p);ptPush(p)}
+function ptLeave(c){const p=c.party;if(!p)return;c.party=null;const i=p.m.findIndex(x=>x.c===c);if(i<0)return;const x=p.m[i];
+ if(p.state==='playing'){x.left=true;x.out=true;
+  if(!p.m.some(y=>!y.left))return ptDelete(p);
+  if(p.host===x)p.host=p.m.find(y=>!y.left);
+  const live=p.m.filter(y=>!y.out);
+  if(live.length<=1){p.msg=dn(x.u)+' left the game';return ptFinish(p,live[0]||null)}
+  p.msg=dn(x.u)+' left the game';if(p.m[p.turn]===x){p.turn=ptNext(p,p.turn);ptTimer(p)}ptPush(p)}
+ else{p.m.splice(i,1);if(!p.m.length)return ptDelete(p);if(p.host===x)p.host=p.m[0];ptPush(p)}
+ ptSendList()}
+async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;const cur=p.m[p.turn];if(!cur||cur.c!==c||cur.busy)return;
+ w=String(w).toLowerCase().trim();if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only');
+ if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
+ const tok=p.tok;cur.busy=true;let ok=false;try{ok=!p.chain.includes(w)&&await rel(p.chain.at(-1),w)}finally{cur.busy=false}
+ if(p.state!=='playing'||p.tok!==tok||p.m[p.turn]!==cur||c.party!==p)return;
+ if(ok){p.chain.push(w);p.msg='';addXp(c,Math.round(10*c.u.mult));p.turn=ptNext(p,p.turn);ptTimer(p);return ptPush(p)}
+ flash(c,'That is unrelated!','bad');ptLose(p,cur,dn(cur.u)+' said "'+w+'" - unrelated!')}
 const handlers={
  guest(c,m){const n=String(m.name||'');if(blocked(c,n))return;if(!okName(n))return flash(c,'Name: 3-16 letters/numbers/_','bad');
   if(find(n)||Object.keys(db.users).some(k=>k.toLowerCase()==n.toLowerCase()))return flash(c,'Username taken','bad');
@@ -144,20 +184,39 @@ const handlers={
   const o=find(u.name);if(o&&o!==c){logout(o);o.ws.close()}
   const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=u.name;save();login(c,u,true);send(c,{t:'token',tk})},
  resume(c,m){const n=db.tokens[m.tk],u=n&&db.users[n];if(!u)return send(c,{t:'badtoken'});if(blocked(c,n))return;const o=find(n);if(o&&o!==c){logout(o);o.ws.close()}login(c,u,true)},
- challenge(c,m){if(c.end)return flash(c,'Stop endless mode first','warn');const o=find(m.to);if(!o||o===c||o.bt||o.end||c.bt||c.pend)return;
+ challenge(c,m){if(c.end)return flash(c,'Stop endless mode first','warn');const o=find(m.to);if(!o||o===c||o.bt||o.end||o.plob||c.plob||c.bt||c.pend)return;
   c.pend={to:o,tm:setTimeout(()=>{if(c.pend&&c.pend.to===o){c.pend=null;send(c,{t:'noresp',name:dn(o.u)});send(o,{t:'chalgone',from:c.u.name})}},20000)};
   send(o,{t:'challenge',from:c.u.name,dn:dn(c.u)})},
  deny(c,m){const o=find(m.from);if(!o||!o.pend||o.pend.to!==c)return;clearTimeout(o.pend.tm);o.pend=null;send(o,{t:'denied',name:dn(c.u)})},
- accept(c,m){if(c.end)return flash(c,'Stop endless mode first','warn');const o=find(m.from);if(!o||!o.pend||o.pend.to!==c||o.bt||c.bt)return;clearTimeout(o.pend.tm);o.pend=null;start(o,c)},
+ accept(c,m){if(c.end)return flash(c,'Stop endless mode first','warn');const o=find(m.from);if(!o||!o.pend||o.pend.to!==c||o.bt||c.bt||c.plob)return;clearTimeout(o.pend.tm);o.pend=null;start(o,c)},
  typing(c,m){const bt=c.bt;if(!bt)return;const txt=filter.clean(String(m.text).slice(0,24)),i=bt.p.indexOf(c);send(bt.p[1-i],{t:'opptype',text:txt});bt.spec.forEach(s=>send(s,{t:'spectype',who:i,text:txt}))},
- watch(c,m){const o=find(m.who);if(!o||!o.bt||c.bt||c.end||c===o)return;if(c.watch)c.watch.spec.delete(c);c.watch=o.bt;o.bt.spec.add(c);send(c,specState(o.bt))},
+ watch(c,m){const o=find(m.who);if(!o||!o.bt||c.bt||c.end||c.plob||c===o)return;if(c.watch)c.watch.spec.delete(c);c.watch=o.bt;o.bt.spec.add(c);send(c,specState(o.bt))},
  unwatch(c){if(c.watch){c.watch.spec.delete(c);c.watch=null}},
  setdisplay(c,m){const x=String(m.text||'').trim().replace(/\s+/g,' ');
   if(x){if(!/^[A-Za-z0-9_ .!-]{2,20}$/.test(x)||filter.check(x))return flash(c,'Display name: 2-20 letters, numbers, spaces, _ . ! - (no bad words)','bad');
    const lc=x.toLowerCase();if(lc!==c.u.name.toLowerCase()&&(Object.keys(db.users).some(k=>k.toLowerCase()==lc)||[...online.values()].some(o=>o!==c&&((o.u.display||'').toLowerCase()==lc||o.u.name.toLowerCase()==lc))))return flash(c,'That display name is taken','bad')}
   c.u.display=x;if(c.acct)save();send(c,{t:'me',me:me(c)});if(c.bt&&c.bt.live)push(c.bt);lobby()},
  submit(c,m){submit(c,m.word)},
- forfeit(c){end(c,false)},
+ forfeit(c){if(!c.bt)return send(c,{t:'nobattle'});end(c,false)},
+ plobby(c,m){if(m.on){if(c.bt||c.end)return flash(c,'Finish what you are doing first','warn');
+   if(c.pend){clearTimeout(c.pend.tm);send(c.pend.to,{t:'chalgone',from:c.u.name});c.pend=null}
+   if(c.watch){c.watch.spec.delete(c);c.watch=null}
+   c.plob=true;lobby();send(c,{t:'plist',list:ptList()})}
+  else{ptLeave(c);c.plob=false;lobby();ptSendList()}},
+ pcreate(c,m){if(!c.plob||c.party||c.bt||c.end)return;if(parties.size>=200)return flash(c,'Too many parties right now, try again soon','warn');
+  if(Date.now()-(c.lastParty||0)<1500)return;c.lastParty=Date.now();
+  const x={c,u:c.u,lives:PLIVES,out:false,left:false},p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),code:ptCode(),priv:!!m.priv,state:'lobby',m:[x],host:x,chain:[],turn:0,tok:0,deadline:0,msg:'',result:null,tm:null};
+  c.party=p;parties.set(p.id,p);ptPush(p);ptSendList();lobby()},
+ pjoin(c,m){if(!c.plob||c.party||c.bt||c.end)return;let p;
+  if(m.code!=null){const q=String(m.code).toUpperCase().replace(/[^A-Z0-9]/g,'');p=[...parties.values()].find(x=>x.priv&&x.code===q);if(!p)return flash(c,'No private party with that code','bad')}
+  else{p=parties.get(String(m.id));if(!p||p.priv)return flash(c,'That party no longer exists','bad')}
+  if(p.state!=='lobby')return flash(c,'That game already started','warn');
+  if(p.m.length>=PMAX)return flash(c,'That party is full (max '+PMAX+' players)','warn');
+  p.m.push({c,u:c.u,lives:PLIVES,out:false,left:false});c.party=p;ptPush(p);ptSendList();lobby()},
+ pleave(c){ptLeave(c);send(c,{t:'pgone'});send(c,{t:'plist',list:ptList()});lobby()},
+ pstart(c){const p=c.party;if(!p||p.state!=='lobby'||p.host.c!==c)return;if(p.m.length<2)return flash(c,'You need at least 2 players to start','warn');ptStartGame(p)},
+ psubmit(c,m){ptSubmit(c,m.word)},
+ ptype(c,m){const p=c.party;if(!p||p.state!=='playing'||!p.m[p.turn]||p.m[p.turn].c!==c)return;const txt=filter.clean(String(m.text||'').slice(0,24));for(const x of p.m)if(!x.left&&x.c!==c)send(x.c,{t:'ptyping',text:txt})},
  color(c,m){const k=COLORS.find(x=>x[0]==m.color),own=c.u.owner;if((k&&(own||c.u.xp>=k[1]))||(own&&m.color=='ownerrainbow')){c.u.color=m.color;if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()}},
  buy(c,m){const p=SHOP[m.mult];if(p&&c.u.bal>=p&&c.u.mult<+m.mult){c.u.bal-=p;c.u.mult=+m.mult;if(c.acct)save();send(c,{t:'me',me:me(c)})}},
  announce(c,m){if(!canAnn(c))return;const t=String(m.text||'').trim().slice(0,140);if(!t||Date.now()-(c.lastAnn||0)<3000)return;c.lastAnn=Date.now();for(const x of online.values())send(x,{t:'announce',text:t,from:dn(c.u)})},
@@ -216,7 +275,7 @@ const handlers={
  reportdone(c,m){if(!isMod(c))return;const r=db.reports.find(x=>x.id===m.id);if(!r||r.status!=='open'||(r.tmod&&!c.u.owner))return;r.status='resolved';r.by2=dn(c.u);save();
   if(r.byAcct)inboxAdd(r.by,true,{kind:'report',text:'✅ Thanks! Your report'+(r.target?' about '+r.tdn:'')+' was reviewed by the team.'});pushReports()},
  signout(c,m){if(m.tk&&c.u&&db.tokens[m.tk]===c.u.name){delete db.tokens[m.tk];save()}logout(c);send(c,{t:'loggedout'})},
- endstart(c){if(c.bt||c.watch||c.end)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
+ endstart(c){if(c.bt||c.watch||c.end||c.plob)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
  async endsubmit(c,m){const e=c.end;if(!e||e.turn!=='you'||e.busy)return;const w=String(m.word||'').toLowerCase().trim();
   if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only','bad');
   if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
@@ -288,7 +347,7 @@ const handlers={
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon'};
-const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation-on-black-background-isolated-transparent-alpha-png.webp'];
+const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation-on-black-background-isolated-transparent-alpha-png.webp','pixil-frame-0.png'];
 const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
  const rel=u=='/'?'index.html':path.normalize(u).replace(/^(\.\.[\/\\])+/,'');
  const nf=()=>{r.writeHead(404);r.end('Not found')};
