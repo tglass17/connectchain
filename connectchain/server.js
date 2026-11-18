@@ -16,7 +16,7 @@ const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
@@ -86,7 +86,7 @@ function inboxAdd(name,acct,item){const c=find(name);let u=null;if(c&&c.acct===a
  const inb=u.inbox=u.inbox||[];inb.push({id:Date.now()*1000+Math.floor(Math.random()*1000),read:false,at:Date.now(),...item});if(inb.length>50)inb.splice(0,inb.length-50);
  if(acct)save();if(c&&c.acct===acct)send(c,{t:'inbox',unread:inb.filter(x=>!x.read).length,new:item.text})}
 function note(r,text){inboxAdd(r.name,true,{kind:'modreq',text})}
-function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}if(isMod(c))send(c,{t:'reports',list:reportList(c)})}
+function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}if(isMod(c))send(c,{t:'reports',list:reportList(c)});if(c.u.lev)send(c,liveStatus(c))}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -115,12 +115,15 @@ const hasF=(u,n)=>(u.friends||[]).some(x=>lc(x)==lc(n));
 const friendView=u=>{const v=n=>({name:n,dn:dn(db.users[n]||{name:n})});return{friends:(u.friends||[]).map(v),inc:(u.fin||[]).map(v),out:(u.fout||[]).slice()}};
 function pushFriends(names){for(const x of online.values())if(x.acct&&x.u&&names.some(n=>lc(n)==lc(x.u.name)))send(x,{t:'friends',...friendView(x.u)})}
 function makeFriends(a,b){for(const[u,o]of[[a,b],[b,a]]){u.friends=u.friends||[];if(!hasF(u,o.name))u.friends.push(o.name);u.fin=(u.fin||[]).filter(x=>lc(x)!=lc(o.name));u.fout=(u.fout||[]).filter(x=>lc(x)!=lc(o.name))}}
-let evt=null,evtCool=0;const EV_START=4000,EV_DUR=15000,EV_COST=10000;
-function startEvent(by){const coins=[];let t=0,id=0;while(t<EV_DUR){const big=Math.random()<0.08;coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:14+Math.random()*78,life:big?2800:3500});t+=170+Math.random()*90}
- let nb=coins.filter(c=>c.big).length;while(nb<4){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=2800;nb++}}
- const e=evt={id:Date.now(),coinsAt:Date.now()+EV_START,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};evtCool=Date.now()+EV_START+EV_DUR+4500+60000;
- const msg={t:'tevent',id:e.id,startIn:EV_START,coins};for(const x of online.values())send(x,msg);
- setTimeout(()=>{if(evt===e)evt=null},EV_START+EV_DUR+4500)}
+const evLeft=u=>u.lev?Math.max(0,u.lev.limit-(u.evUsed&&u.evUsed.d===ymd()?u.evUsed.n:0)):0;
+const liveStatus=c=>({t:'liveev',on:!!c.u.lev,limit:c.u.lev?c.u.lev.limit:0,left:evLeft(c.u)});
+let evt=null,evtCool=0;const EV_START=4000,EV_DUR=15000,EV_COST=10000,BH_START=6800,BH_SPAN=3500;
+function startEvent(by,kind){const bh=kind==='blackhole',startIn=bh?BH_START:EV_START,span=bh?BH_SPAN:EV_DUR,coins=[];let t=0,id=0;
+ while(t<span){const big=Math.random()<0.08;coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:14+Math.random()*78,life:bh?(big?6500:7500):(big?2800:3500)});t+=(bh?50:170)+Math.random()*(bh?40:90)}
+ let nb=coins.filter(c=>c.big).length;while(nb<4){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=bh?6500:2800;nb++}}
+ const e=evt={id:Date.now(),coinsAt:Date.now()+startIn,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};const total=startIn+span+(bh?7500:3500)+1000;evtCool=Date.now()+total+60000;
+ const msg={t:'tevent',kind:bh?'blackhole':'token',by:dn(by),id:e.id,startIn,coins};for(const x of online.values())send(x,msg);
+ setTimeout(()=>{if(evt===e)evt=null},total)}
 const RCATS=['player','name','chat','bug','other'];
 const reportList=c=>db.reports.slice(-100).filter(r=>c.u.owner||!r.tmod).map(r=>({id:r.id,by:r.by,byDn:r.byDn,target:r.target,tdn:r.tdn,cat:r.cat,text:r.text,ctx:r.ctx,at:r.at,status:r.status}));
 const pushReports=()=>{for(const x of online.values())if(isMod(x))send(x,{t:'reports',list:reportList(x)})};
@@ -175,7 +178,14 @@ const handlers={
   else{c.u.fin=c.u.fin.filter(x=>lc(x)!=lc(fu.name));fu.fout=(fu.fout||[]).filter(x=>lc(x)!=lc(c.u.name))}
   save();pushFriends([c.u.name,fu.name]);if(m.fromInbox)handlers.inbox(c)},
  unfriend(c,m){if(!c.acct)return;const fu=fuser(m.name);if(!fu)return;c.u.friends=(c.u.friends||[]).filter(x=>lc(x)!=lc(fu.name));fu.friends=(fu.friends||[]).filter(x=>lc(x)!=lc(c.u.name));save();pushFriends([c.u.name,fu.name])},
- spawnevent(c){if(!c.u?.owner||!c.acct)return;if(evt)return flash(c,'A token explosion is already running','warn');startEvent(c.u)},
+ liveev(c){if(c.acct)send(c,liveStatus(c))},
+ setliveev(c,m){if(!c.u?.owner||!c.acct)return;const u=fuser(m.to);if(!u||u.owner)return flash(c,'Only regular accounts can get live events','bad');
+  if(m.on)u.lev={limit:Math.max(1,Math.min(50,Math.floor(+m.limit)||3))};else delete u.lev;save();
+  const o=find(u.name);if(o&&o.acct){send(o,{t:'me',me:me(o)});send(o,liveStatus(o))}lobby();flash(c,m.on?'Live events granted ('+u.lev.limit+' per day)':'Live events revoked','ok')},
+ spawnevent(c,m){if(!c.u||!c.acct)return;const kind=m.kind==='blackhole'?'blackhole':'token';
+  if(c.u.owner){if(evt)return flash(c,'An event is already running','warn');return startEvent(c.u,kind)}
+  if(!c.u.lev)return;if(evLeft(c.u)<=0)return flash(c,'You used all '+c.u.lev.limit+' of your events today','warn');if(evt)return flash(c,'An event is already running. Try again in a moment.','warn');
+  startEvent(c.u,kind);const d=ymd(),n=c.u.evUsed&&c.u.evUsed.d===d?c.u.evUsed.n:0;c.u.evUsed={d,n:n+1};save();send(c,liveStatus(c))},
  buyevent(c){if(!c.u)return;if(c.u.owner)return flash(c,'You can spawn it free from the 🛠️ Tools button','ok');
   if(evt||Date.now()<evtCool)return flash(c,'A token explosion just ran or is running. Try again in a bit.','warn');
   if(c.u.bal<EV_COST||c.u.xp<EV_COST)return flash(c,'You need 10,000 XP to buy a Token Explosion','bad');
@@ -278,7 +288,7 @@ const handlers={
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon'};
-const ASSETS=['projectile.png','projectexplosion.gif'];
+const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation-on-black-background-isolated-transparent-alpha-png.webp'];
 const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
  const rel=u=='/'?'index.html':path.normalize(u).replace(/^(\.\.[\/\\])+/,'');
  const nf=()=>{r.writeHead(404);r.end('Not found')};
