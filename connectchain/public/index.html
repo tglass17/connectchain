@@ -134,7 +134,7 @@ function specRender(m){const[a,b]=m.p;$('svs').innerHTML=`${nm(a)} ${'❤️'.re
 function back(){$('arena').style.display='none';$('welcome').style.display=''}
 function on(m){
  if(m.t=='me'){you=m.me;autoGuest=false;if(you.account)localStorage.removeItem('ccguest');else{localStorage.ccguest=you.name;localStorage.removeItem('cctk')}if(m.colors)colors=m.colors;$('out').style.display='none';$('shop').style.display='';$('lbp').style.display='';lbAsk();envUpdate();$('inb').style.display='';$('lob').style.display='';$('frb').style.display=you.account?'':'none';inbUpdate();$('own').style.display=you.owner?'':'none';const pw=you.owner||you.mod||you.alpha;$('modp').style.display=pw?'':'none';$('pollp').style.display=pw?'':'none';$('blb').style.display=(you.owner||you.mod)?'':'none';$('rpts').style.display=(you.owner||you.mod)?'':'none';rptUpdate();$('lev').style.display=(you.lev&&!you.owner)?'':'none';$('colbox').style.display='';
-  $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name">✏️</span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
+  $('me').innerHTML=nm(you)+` <span class="nm" data-n="${esc(you.name)}" title="Edit display name"><a href="pixil-frame-0.png"</a></span>`+` · ${xpOf(you)} XP · ${you.mult}x`;
   $('col').innerHTML=[...(you.owner?[['ownerrainbow',0]]:[]),...colors.filter(c=>(you.owner||you.xp>=c[1])&&!(you.owner&&c[0]=='white'))].map(c=>`<option value="${c[0]}" ${(c[0]==you.color||(you.owner&&c[0]=='ownerrainbow'&&you.color=='white'))?'selected':''}>${CN[c[0]]||c[0]}</option>`).join('')}
  if(m.t=='badtoken'){localStorage.removeItem('cctk');$('past').style.display='none';if(localStorage.ccguest)send({t:'guest',name:localStorage.ccguest})}
  if(m.t=='token')localStorage.cctk=m.tk;
