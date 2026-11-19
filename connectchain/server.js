@@ -16,7 +16,7 @@ const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
@@ -176,7 +176,9 @@ async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;c
 // ===== Redeem codes =====
 const CODE_MAXXP=1000,hasCode=k=>Object.prototype.hasOwnProperty.call(db.codes,k);
 const canCode=c=>c.u&&c.acct&&(c.u.owner||c.u.codes);
-const codesMsg=c=>({t:'codes',list:Object.values(db.codes).filter(x=>c.u.owner||x.by===c.u.name).sort((a,b)=>b.at-a.at).slice(0,100).map(x=>({code:x.code,xp:x.xp,max:x.max,used:x.used.length,by:x.by}))});
+const codeLeft=u=>u.codes?Math.max(0,(u.codeLimit||0)-(u.codeUsed&&u.codeUsed.d===ymd()?u.codeUsed.n:0)):0;
+const codeWho=x=>x.used.slice(0,200).map(n=>({name:n,dn:dn(db.users[n]||{name:n}),at:((x.log||[]).find(l=>l.n===n)||{}).at||0}));
+const codesMsg=c=>({t:'codes',owner:!!c.u.owner,limit:c.u.owner?0:(c.u.codeLimit||0),left:c.u.owner?0:codeLeft(c.u),list:Object.values(db.codes).filter(x=>c.u.owner||x.by===c.u.name).sort((a,b)=>b.at-a.at).slice(0,100).map(x=>({code:x.code,xp:x.xp,max:x.max,used:x.used.length,by:x.by,...(c.u.owner?{who:codeWho(x)}:{})}))});
 const pushCodes=()=>{for(const x of online.values())if(canCode(x))send(x,codesMsg(x))};
 const handlers={
  guest(c,m){const n=String(m.name||'');if(blocked(c,n))return;if(!okName(n))return flash(c,'Name: 3-16 letters/numbers/_','bad');
@@ -212,16 +214,18 @@ const handlers={
   if(!own&&xp>CODE_MAXXP)return flash(c,'You can give at most '+CODE_MAXXP+' XP per code','bad');
   if(!own&&Object.values(db.codes).filter(x=>x.by===c.u.name).length>=100)return flash(c,'You have too many codes. Delete some first.','bad');
   const k=raw.toLowerCase();if(hasCode(k))return flash(c,'That code already exists','bad');
-  db.codes[k]={code:raw,xp,max,used:[],by:c.u.name,at:Date.now()};save();flash(c,'Code "'+raw+'" created','ok');pushCodes()},
+  if(!own&&codeLeft(c.u)<=0)return flash(c,'You used all '+(c.u.codeLimit||0)+' of your codes for today. Try again tomorrow.','warn');
+  if(!own){const d=ymd(),n=c.u.codeUsed&&c.u.codeUsed.d===d?c.u.codeUsed.n:0;c.u.codeUsed={d,n:n+1}}
+  db.codes[k]={code:raw,xp,max,used:[],log:[],by:c.u.name,at:Date.now()};save();flash(c,'Code "'+raw+'" created','ok');pushCodes()},
  codedel(c,m){if(!canCode(c))return;const k=String(m.code||'').toLowerCase();if(!hasCode(k))return;const x=db.codes[k];if(!(c.u.owner||x.by===c.u.name))return;delete db.codes[k];save();pushCodes()},
- setcodes(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.codes=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canCode(t.c))send(t.c,codesMsg(t.c))}lobby()},
+ setcodes(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;if(m.on){t.u.codes=true;t.u.codeLimit=Math.max(1,Math.min(100,Math.floor(+m.limit)||5))}else{delete t.u.codes;delete t.u.codeLimit}save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canCode(t.c))send(t.c,codesMsg(t.c))}lobby()},
  redeem(c,m){if(!c.acct)return flash(c,'Sign up for an account to redeem codes','bad');
   const now=Date.now();if(c.rlock>now)return flash(c,'Too many wrong tries. Wait a minute.','warn');if(now-(c.lastRedeem||0)<1000)return;c.lastRedeem=now;
   const k=String(m.code||'').trim().toLowerCase(),x=hasCode(k)?db.codes[k]:null;
   if(!x){c.rfail=(c.rfail||0)+1;if(c.rfail>=8){c.rlock=now+6e4;c.rfail=0}return flash(c,'Invalid Code','bad')}
   if(x.used.length>=x.max)return flash(c,'Code is expired','bad');
   if(x.used.some(n=>lc(n)==lc(c.u.name)))return flash(c,'You already redeemed this code','warn');
-  x.used.push(c.u.name);c.rfail=0;addXp(c,x.xp);save();send(c,{t:'redeemed',xp:x.xp});pushCodes()},
+  x.used.push(c.u.name);(x.log=x.log||[]).push({n:c.u.name,at:now});c.rfail=0;addXp(c,x.xp);save();send(c,{t:'redeemed',xp:x.xp});pushCodes()},
  plobby(c,m){if(m.on){if(c.bt||c.end)return flash(c,'Finish what you are doing first','warn');
    if(c.pend){clearTimeout(c.pend.tm);send(c.pend.to,{t:'chalgone',from:c.u.name});c.pend=null}
    if(c.watch){c.watch.spec.delete(c);c.watch=null}
