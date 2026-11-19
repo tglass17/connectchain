@@ -16,7 +16,7 @@ const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
 const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
@@ -173,6 +173,11 @@ async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;c
  if(p.state!=='playing'||p.tok!==tok||p.m[p.turn]!==cur||c.party!==p)return;
  if(ok){p.chain.push(w);p.msg='';addXp(c,Math.round(10*c.u.mult));p.turn=ptNext(p,p.turn);ptTimer(p);return ptPush(p)}
  flash(c,'That is unrelated!','bad');ptLose(p,cur,dn(cur.u)+' said "'+w+'" - unrelated!')}
+// ===== Redeem codes =====
+const CODE_MAXXP=1000,hasCode=k=>Object.prototype.hasOwnProperty.call(db.codes,k);
+const canCode=c=>c.u&&c.acct&&(c.u.owner||c.u.codes);
+const codesMsg=c=>({t:'codes',list:Object.values(db.codes).filter(x=>c.u.owner||x.by===c.u.name).sort((a,b)=>b.at-a.at).slice(0,100).map(x=>({code:x.code,xp:x.xp,max:x.max,used:x.used.length,by:x.by}))});
+const pushCodes=()=>{for(const x of online.values())if(canCode(x))send(x,codesMsg(x))};
 const handlers={
  guest(c,m){const n=String(m.name||'');if(blocked(c,n))return;if(!okName(n))return flash(c,'Name: 3-16 letters/numbers/_','bad');
   if(find(n)||Object.keys(db.users).some(k=>k.toLowerCase()==n.toLowerCase()))return flash(c,'Username taken','bad');
@@ -198,6 +203,25 @@ const handlers={
   c.u.display=x;if(c.acct)save();send(c,{t:'me',me:me(c)});if(c.bt&&c.bt.live)push(c.bt);lobby()},
  submit(c,m){submit(c,m.word)},
  forfeit(c){if(!c.bt)return send(c,{t:'nobattle'});end(c,false)},
+ codeslist(c){if(canCode(c))send(c,codesMsg(c))},
+ codemake(c,m){if(!canCode(c))return;const own=c.u.owner,raw=String(m.code||'').trim();
+  if(!/^[A-Za-z0-9_-]{3,20}$/.test(raw)||raw.toLowerCase()==='__proto__')return flash(c,'Code: 3-20 letters, numbers, _ or -','bad');
+  const max=Math.floor(+m.max),xp=Math.floor(+m.xp);
+  if(!(max>=1&&max<=100000))return flash(c,'People who can redeem: 1 to 100000','bad');
+  if(!(xp>=1&&xp<=1e9))return flash(c,'XP must be at least 1','bad');
+  if(!own&&xp>CODE_MAXXP)return flash(c,'You can give at most '+CODE_MAXXP+' XP per code','bad');
+  if(!own&&Object.values(db.codes).filter(x=>x.by===c.u.name).length>=100)return flash(c,'You have too many codes. Delete some first.','bad');
+  const k=raw.toLowerCase();if(hasCode(k))return flash(c,'That code already exists','bad');
+  db.codes[k]={code:raw,xp,max,used:[],by:c.u.name,at:Date.now()};save();flash(c,'Code "'+raw+'" created','ok');pushCodes()},
+ codedel(c,m){if(!canCode(c))return;const k=String(m.code||'').toLowerCase();if(!hasCode(k))return;const x=db.codes[k];if(!(c.u.owner||x.by===c.u.name))return;delete db.codes[k];save();pushCodes()},
+ setcodes(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.codes=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(canCode(t.c))send(t.c,codesMsg(t.c))}lobby()},
+ redeem(c,m){if(!c.acct)return flash(c,'Sign up for an account to redeem codes','bad');
+  const now=Date.now();if(c.rlock>now)return flash(c,'Too many wrong tries. Wait a minute.','warn');if(now-(c.lastRedeem||0)<1000)return;c.lastRedeem=now;
+  const k=String(m.code||'').trim().toLowerCase(),x=hasCode(k)?db.codes[k]:null;
+  if(!x){c.rfail=(c.rfail||0)+1;if(c.rfail>=8){c.rlock=now+6e4;c.rfail=0}return flash(c,'Invalid Code','bad')}
+  if(x.used.length>=x.max)return flash(c,'Code is expired','bad');
+  if(x.used.some(n=>lc(n)==lc(c.u.name)))return flash(c,'You already redeemed this code','warn');
+  x.used.push(c.u.name);c.rfail=0;addXp(c,x.xp);save();send(c,{t:'redeemed',xp:x.xp});pushCodes()},
  plobby(c,m){if(m.on){if(c.bt||c.end)return flash(c,'Finish what you are doing first','warn');
    if(c.pend){clearTimeout(c.pend.tm);send(c.pend.to,{t:'chalgone',from:c.u.name});c.pend=null}
    if(c.watch){c.watch.spec.delete(c);c.watch=null}
@@ -358,5 +382,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
