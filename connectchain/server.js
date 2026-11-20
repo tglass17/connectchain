@@ -179,11 +179,13 @@ async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;c
  flash(c,'That is unrelated!','bad');ptLose(p,cur,dn(cur.u)+' said "'+w+'" - unrelated!')}
 // ===== Limited colors, rewards, Mega Lobby helpers, Raffles =====
 const LIMSEED=[
- {id:'l_goldenhaze',name:'Golden Haze',kind:'shine',stops:['#b8860b','#ffd700']},
- {id:'l_bluehaze',name:'Blue Haze',kind:'gradient',stops:['#2563eb','#06b6d4','#10b981']},
- {id:'l_firerampage',name:'Fire Rampage',kind:'animated',stops:['#dc2626','#f97316','#facc15']},
- {id:'l_silverhaze',name:'Silver Haze',kind:'shine',stops:['#4b5563','#9ca3af']}];
-function limSeed(){db.limcolors=db.limcolors||{};if(!db.limSeeded){for(const d of LIMSEED)if(!db.limcolors[d.id])db.limcolors[d.id]=d;db.limSeeded=true}}
+ {id:'l_goldenhaze',name:'Golden Haze',kind:'gradient',anim:'shine',speed:1,stops:['#b8860b','#ffd700']},
+ {id:'l_bluehaze',name:'Blue Haze',kind:'gradient',anim:'none',speed:1,stops:['#2563eb','#06b6d4','#10b981']},
+ {id:'l_firerampage',name:'Fire Rampage',kind:'gradient',anim:'flow',speed:1,stops:['#dc2626','#f97316','#facc15']},
+ {id:'l_silverhaze',name:'Silver Haze',kind:'gradient',anim:'shine',speed:1,stops:['#4b5563','#9ca3af']}];
+const LIMANIM=['none','flow','shine','pulse','flicker','hue'];
+function limNorm(d){if(d.kind==='animated'){d.kind='gradient';d.anim='flow'}else if(d.kind==='shine'){d.kind='gradient';d.anim='shine'}if(!LIMANIM.includes(d.anim))d.anim='none';d.speed=Math.min(4,Math.max(.4,+d.speed||1))}
+function limSeed(){db.limcolors=db.limcolors||{};if(!db.limSeeded){for(const d of LIMSEED)if(!db.limcolors[d.id])db.limcolors[d.id]=d;db.limSeeded=true}Object.values(db.limcolors).forEach(limNorm)}
 const hasLim=id=>typeof id==='string'&&Object.prototype.hasOwnProperty.call(db.limcolors,id);
 const ownsLim=(u,id)=>hasLim(id)&&!!(u.owner||(u.lim||[]).includes(id));
 const limMsg=()=>({t:'limdefs',defs:db.limcolors});
@@ -268,12 +270,13 @@ const handlers={
   x.used.push(c.u.name);(x.log=x.log||[]).push({n:c.u.name,at:now});c.rfail=0;addXp(c,x.xp);save();send(c,{t:'redeemed',xp:x.xp});pushCodes()},
  limcreate(c,m){if(!c.u?.owner||!c.acct)return;const name=String(m.name||'').trim().replace(/\s+/g,' ');
   if(!/^[A-Za-z0-9 ]{2,20}$/.test(name)||filter.check(name))return flash(c,'Color name: 2-20 letters/numbers/spaces (no bad words)','bad');
-  const kind=['solid','gradient','animated','shine'].includes(m.kind)?m.kind:'gradient',hx=/^#[0-9a-f]{6}$/i;
+  const kind=m.kind==='solid'?'solid':'gradient',anim=LIMANIM.includes(m.anim)?m.anim:(m.kind==='animated'?'flow':m.kind==='shine'?'shine':'none'),speed=Math.min(4,Math.max(.4,+m.speed||1)),hx=/^#[0-9a-f]{6}$/i;
   const stops=(Array.isArray(m.stops)?m.stops:[]).map(String).filter(x=>hx.test(x)).slice(0,3).map(x=>x.toLowerCase());
   if(!stops.length||(kind!=='solid'&&stops.length<2))return flash(c,'Pick '+(kind==='solid'?'a color':'at least 2 colors'),'bad');
+  if(kind==='solid'&&anim==='flow')return flash(c,'Flow needs a gradient (2 or more colors)','bad');
   const id='l_'+name.toLowerCase().replace(/[^a-z0-9]/g,'');if(hasLim(id))return flash(c,'A limited color with that name already exists','bad');
   if(Object.keys(db.limcolors).length>=40)return flash(c,'Too many limited colors (max 40). Delete one first.','bad');
-  db.limcolors[id]={id,name,kind,stops:kind==='solid'?stops.slice(0,1):stops};save();pushLim();send(c,{t:'limmade',id,name});flash(c,'Limited color "'+name+'" created','ok')},
+  db.limcolors[id]={id,name,kind,anim,speed,stops:kind==='solid'?stops.slice(0,1):stops};save();pushLim();send(c,{t:'limmade',id,name});flash(c,'Limited color "'+name+'" created','ok')},
  limdel(c,m){if(!c.u?.owner||!c.acct)return;const id=String(m.id||'');if(!hasLim(id))return;delete db.limcolors[id];
   for(const u of Object.values(db.users)){if(u.lim)u.lim=u.lim.filter(x=>x!==id);if(u.color===id)u.color='white'}
   for(const r of db.raffles)if(!r.done&&r.reward.color===id)r.reward.color='';
