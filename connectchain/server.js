@@ -39,8 +39,12 @@ function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,spe
  bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
  setTimeout(()=>{if(a.bt===bt){bt.live=true;reset(bt,Math.round(Math.random()))}},4200)}
 function reset(bt,turn){bt.chain=[WORDS[Math.random()*WORDS.length|0]];bt.turn=turn;push(bt)}
-function push(bt){bt.p.forEach((c,i)=>send(c,{t:'battle',opp:pub(bt.p[1-i].u),chain:bt.chain,lives:bt.lives,you:i,turn:bt.turn}));bt.spec.forEach(s=>send(s,specState(bt)))}
-function end(c,won){const bt=c.bt;if(!bt)return;const i=bt.p.indexOf(c),o=bt.p[1-i];bt.p.forEach(x=>{x.bt=null});
+const BTIDLE=+process.env.BT_IDLE_MS||60000;
+function idleWatch(bt){clearTimeout(bt.itm);clearTimeout(bt.iwarn);if(!bt.live)return;const cur=bt.p[bt.turn];if(!cur)return;
+ bt.iwarn=setTimeout(()=>{if(cur.bt===bt&&bt.p[bt.turn]===cur)flash(cur,'⏳ Make a move or you will be kicked for inactivity!','warn')},Math.round(BTIDLE*.6));
+ bt.itm=setTimeout(()=>{if(cur.bt!==bt||bt.p[bt.turn]!==cur)return;const o=bt.p[1-bt.p.indexOf(cur)];flash(cur,'You were kicked for being inactive.','bad');if(o)flash(o,dn(cur.u)+' was inactive and got kicked. You win!');end(cur,false)},BTIDLE)}
+function push(bt){idleWatch(bt);bt.p.forEach((c,i)=>send(c,{t:'battle',opp:pub(bt.p[1-i].u),chain:bt.chain,lives:bt.lives,you:i,turn:bt.turn}));bt.spec.forEach(s=>send(s,specState(bt)))}
+function end(c,won){const bt=c.bt;if(!bt)return;clearTimeout(bt.itm);clearTimeout(bt.iwarn);const i=bt.p.indexOf(c),o=bt.p[1-i];bt.p.forEach(x=>{x.bt=null});
  const w=won?c:o;bt.spec.forEach(s=>{s.watch=null;send(s,{t:'specover',winner:w.u?dn(w.u):'?'})});bt.spec.clear();if(w.u){addXp(w,Math.round(100*w.u.mult));send(w,{t:'over',win:true});send(w===c?o:c,{t:'over',win:false})}lobby()}
 function strike(c){c.strikes=(c.strikes||0)+1;if(c.strikes>=3){bans[c.ip]=Date.now()+6e5;send(c,{t:'banned'});c.ws.close()}
  else flash(c,c.strikes==2?'⚠ FINAL WARNING: keep it up and you will be banned.':'⚠ Warning: that word is not allowed.','warn')}
@@ -60,6 +64,9 @@ const ymd=()=>new Date().toLocaleDateString('en-CA',{timeZone:TZ});
 function wk(d){const t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-(t.getUTCDay()+6)%7);return t.toISOString().slice(0,10)}
 function roll(u){const d=ymd(),w=wk(d),m=d.slice(0,7),g=u.g=u.g||{d,dx:0,w,wx:0,m,mx:0};if(g.d!==d){g.d=d;g.dx=0}if(g.w!==w){g.w=w;g.wx=0}if(g.m!==m){g.m=m;g.mx=0}return g}
 const gain=(u,n)=>{if(!n||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx=Math.max(0,g.dx+n);g.wx=Math.max(0,g.wx+n);g.mx=Math.max(0,g.mx+n)};
+const LBF={day:u=>u.owner?0:roll(u).dx,week:u=>u.owner?0:roll(u).wx,month:u=>u.owner?0:roll(u).mx,all:u=>u.owner?0:u.xp,time:u=>u.secs||0};
+function rankOf(u){const us=Object.values(db.users),r={};for(const k in LBF){const v=LBF[k](u);r[k]={v:Math.round(v),rank:v>0?us.filter(x=>LBF[k](x)>v).length+1:0}}return r}
+function friendLb(u){const us=[u,...(u.friends||[]).map(n=>db.users[n]).filter(Boolean)],o={};for(const k in LBF)o[k]=us.map(x=>({...pub(x),v:Math.round(LBF[k](x))})).sort((a,b)=>b.v-a.v);return o}
 function lbData(){const us=Object.values(db.users),top=f=>us.map(u=>({u,v:f(u)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...pub(x.u),v:Math.round(x.v)}));
  return{day:top(u=>u.owner?0:roll(u).dx),week:top(u=>u.owner?0:roll(u).wx),month:top(u=>u.owner?0:roll(u).mx),all:top(u=>u.owner?0:u.xp),time:top(u=>u.secs||0)}}
 let tk=0;setInterval(()=>{const now=Date.now();let ch=false;for(const c of online.values()){if(!c.lastAct)c.lastAct=now;
@@ -449,7 +456,10 @@ const handlers={
  vote(c,m){if(!poll||poll.done||Date.now()>poll.endsAt||m.id!==poll.id)return;const i=m.i|0;if(i<0||i>=poll.opts.length)return;poll.votes[pkey(c)]=i;clearTimeout(pollBc);pollBc=setTimeout(bcPoll,250)},
  active(c){c.lastAct=Date.now();if(c.inact){c.inact=false;lobby()}},
  vis(c,m){c.hiddenSince=m.hidden?Date.now():0},
- lb(c){if(Date.now()-(c.lbAt||0)<3000)return;c.lbAt=Date.now();send(c,{t:'lb',...lbData()})},
+ lb(c){if(Date.now()-(c.lbAt||0)<3000)return;c.lbAt=Date.now();send(c,{t:'lb',...lbData(),fr:c.acct&&c.u?friendLb(c.u):null})},
+ lbfind(c,m){if(Date.now()-(c.lbfAt||0)<400)return;c.lbfAt=Date.now();const q=String(m.q||'').trim().slice(0,16).toLowerCase();if(!q)return send(c,{t:'lbfind',q:'',exact:null,matches:[]});
+  const us=Object.values(db.users),ex=us.find(x=>x.name.toLowerCase()==q||String(x.display||'').toLowerCase()==q),ms=us.filter(x=>x!==ex&&(x.name.toLowerCase().includes(q)||String(x.display||'').toLowerCase().includes(q))).slice(0,8).map(pub);
+  send(c,{t:'lbfind',q,exact:ex?{...pub(ex),ranks:rankOf(ex)}:null,matches:ms})},
  grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);gain(t.u,n);{const k=COLORS.find(x=>x[0]==t.u.color);if(k&&!t.u.owner&&t.u.xp<k[1])t.u.color='white'}t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
