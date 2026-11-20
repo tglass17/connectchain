@@ -100,7 +100,7 @@ html.bh-hide body>*:not(#bhlayer):not(#bhdim):not(#bhblock):not(#coins):not(#tel
 <div id="oppbox">Opponent typing: <span id="opp"></span></div></div></div></div>
 <div><div class="panel" id="endp"><button class="go" onclick="endStart()" style="width:100%">♾️ Endless Mode</button><small>Play against a bot, then press Stop to collect your XP.</small><button id="rfb" class="go" onclick="event.stopPropagation();openRaffle()" style="width:100%;margin-top:16px;background:#facc15;color:#000">🎟️ Raffle</button><small>Enter raffles to win prizes.</small><button class="go" onclick="partyOpen()" style="width:100%;margin-top:16px">🎉 Multiplayer Mode</button><small>Play with up to 6 players.</small></div>
 <div class="panel"><h2 style="margin-top:0">Online</h2><div id="list">Nobody yet…</div></div>
-<div class="panel" id="lbp" style="display:none"><h2 style="margin-top:0">🏆 Leaderboard</h2><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
+<div class="panel" id="lbp" style="display:none"><h2 style="margin-top:0">🏆 Leaderboard</h2><div style="display:flex;gap:6px;margin-bottom:6px"><input id="lbq" maxlength="16" placeholder="🔎 Search a player…" onkeydown="if(event.key=='Enter')lbSearch()" style="flex:1"><button onclick="lbSearch()">Search</button></div><div id="lbr"></div><div id="lbs" style="margin:4px 0"></div><div id="lbt"></div><div id="lbl" style="margin-top:8px"></div></div>
 <div class="panel" id="shop" style="display:none"><div id="colbox"><b>Name color</b><br><select id="col" onchange="send({t:'color',color:this.value})"></select></div>
 <p><b>XP multipliers</b></p><button onclick="send({t:'buy',mult:1.5})">1.5x (500 XP)</button> <button onclick="send({t:'buy',mult:2})">2x (1000 XP)</button>
 <p><b>Live events</b></p><button onclick="send({t:'buyevent'})">💥 Token Explosion (10000 XP)</button>
@@ -284,6 +284,7 @@ function on(m){
  if(m.t=='mymodreq')renderMyReq(m);
  if(m.t=='modnote')banner(m.text,'ann',8000);
  if(m.t=='lb'){lbData=m;lbRender()}
+ if(m.t=='lbfind'){lbFound=m;lbFoundRender()}
  if(m.t=='acctfound'){const r=$('afr');if(r)r.innerHTML=m.list.length?m.list.map(a=>`<div class="row"><span><b>${esc(a.dn)}</b> <small>@${esc(a.name)} · ${a.xp} XP${a.online?' · online':''}</small></span><button class="no" onclick="resetPw('${esc(a.name)}')">🔑 Reset</button></div>`).join(''):'<small>No account found with that name.</small>'}
  if(m.t=='pwreset'){showReqs=false;const mm=$('menu');mm.style.display='block';mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🔑 Password reset</h3><p>New temporary password for <b>${esc(m.name)}</b>:</p><p style="font-size:30px;background:#f0fdf4;border-radius:12px;padding:12px;text-align:center;user-select:all">${esc(m.pw)}</p><small>Send it to them privately. They were logged out. After they log in, they can change it by clicking their own name. This won't be shown again.</small>`}
  if(m.t=='liveev'){liveData=m;if(liveOpen)renderLive()}
@@ -333,11 +334,18 @@ function renderPoll(){const p=poll,b=$('pollbox'),done=p.done||Date.now()>pollEn
 function closePoll(){pollHidden=poll?poll.id:0;$('pollbox').style.display='none';clearInterval(pollIv)}
 function castVote(i){if(!poll)return;send({t:'vote',id:poll.id,i});mine=i;renderPoll()}
 function startPoll(){send({t:'startpoll',q:$('pq').value,opts:[...document.querySelectorAll('.pop')].map(x=>x.value),secs:+$('ps').value});toast('Poll sent to everyone','ok')}
-let lbData=null,lbTab='day',lbAt=0,lastAct=0;
+let lbData=null,lbTab='day',lbScope='all_p',lbAt=0,lastAct=0,lbFound=null;
 const LBT=[['day','Today'],['week','This Week'],['month','This Month'],['all','All Time'],['time','Time']];
 const fmtT=s=>{const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+'h '+m+'m':m+'m'};
 const raw=o=>{if(ws&&ws.readyState==1&&you)ws.send(JSON.stringify(o))};
-function lbRender(){$('lbt').innerHTML=LBT.map(([k,l])=>`<button onclick="lbTab='${k}';lbRender();lbAsk()" style="margin:2px;font-size:15px;padding:6px 10px;${k==lbTab?'background:#22c55e':''}">${l}</button>`).join('');
+const lbV=(k,v)=>k=='time'?fmtT(v):(k=='all'?'':'+')+v+' XP';
+function lbSearch(){const q=$('lbq').value.trim();if(!q){lbFound=null;$('lbr').innerHTML='';return}raw({t:'lbfind',q})}
+function lbPick(n){$('lbq').value=n;lbSearch()}
+function lbFoundRender(){const f=lbFound,e=$('lbr');if(!f||!f.q){e.innerHTML='';return}
+ if(f.exact){const u=f.exact;e.innerHTML=`<div style="background:#f0fdf4;border-radius:12px;padding:10px;margin-bottom:8px"><div style="font-size:20px">${nm(u)}</div>`+LBT.map(([k,l])=>{const r=u.ranks[k];return `<div class="row"><span>${l}</span><b>${r.rank?'#'+r.rank+' · '+lbV(k,r.v):'Unranked'}</b></div>`}).join('')+'</div>';return}
+ e.innerHTML=f.matches.length?'<small>Did you mean:</small>'+f.matches.map(u=>`<div class="row"><span>${nm(u)}</span><button onclick="lbPick('${esc(u.name)}')">View</button></div>`).join(''):'<small>No player found with that name.</small>'}
+function lbRender(){lbFoundRender();$('lbs').innerHTML=[['all_p','🌍 Everyone'],['fr','👥 Friends']].map(([k,l])=>`<button onclick="lbScope='${k}';lbAt=0;lbRender();lbAsk()" style="margin:2px;font-size:15px;padding:6px 10px;${k==lbScope?'background:#3b82f6;color:#fff':''}">${l}</button>`).join('');$('lbt').innerHTML=LBT.map(([k,l])=>`<button onclick="lbTab='${k}';lbRender();lbAsk()" style="margin:2px;font-size:15px;padding:6px 10px;${k==lbTab?'background:#22c55e':''}">${l}</button>`).join('');
+ if(lbScope=='fr'){if(!lbData||!lbData.fr){$('lbl').innerHTML=you&&!you.account?'<small>Sign up for an account to add friends and see them here.</small>':'<small>Loading…</small>';return}const F=lbData&&lbData.fr?lbData.fr[lbTab]:[];$('lbl').innerHTML=(F.length<2?'<small>Add friends from their name menu to compete with them here.</small>':'')+F.map((u,i)=>`<div class="row"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${nm(u)}${u.name==you.name?' <small>(you)</small>':''}</span><b>${lbV(lbTab,u.v)}</b></div>`).join('');return}
  const L=lbData?lbData[lbTab]:[];$('lbl').innerHTML=L.length?L.map((u,i)=>`<div class="row"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${nm(u)}</span><b>${lbTab=='time'?fmtT(u.v):(lbTab=='all'?'':'+')+u.v+' XP'}</b></div>`).join(''):'<small>Nobody yet. Play to get on the board!</small>'}
 function lbAsk(){const n=Date.now();if(n-lbAt>8000){lbAt=n;raw({t:'lb'})}if(!$('lbt').innerHTML)lbRender()}
 setInterval(lbAsk,30000);
