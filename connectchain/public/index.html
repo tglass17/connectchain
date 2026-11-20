@@ -33,6 +33,7 @@ main{display:grid;grid-template-columns:1fr 360px;gap:20px;padding:20px;width:10
 .st{font-size:3cqw}.sy{font-size:2.8cqw;background:#fff;border-radius:2cqw;padding:1.4cqw 3cqw;min-width:50cqw}.sf{font-size:2.2cqw;height:5cqw;overflow:hidden}.sb{font-size:2.4cqw;padding:1cqw 3cqw;border-radius:1.6cqw}
 #pgc{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:38px;min-height:80px;margin:20px 0}#pgw{font-size:32px;width:min(700px,92%);text-align:center;border:3px solid #16a34a;margin:10px 0}#pgp,#ptpub,#ptmem{max-width:520px;margin:0 auto;text-align:left}#party button:disabled{opacity:.5;cursor:not-allowed}
 #rdbtn{position:fixed;right:16px;bottom:80px;z-index:25;background:#2563eb;box-shadow:0 4px 14px #0004}
+@keyframes limpulse{0%,100%{filter:brightness(.85) drop-shadow(0 0 1px var(--g))}50%{filter:brightness(1.45) drop-shadow(0 0 7px var(--g))}}@keyframes limflick{0%,100%{filter:brightness(1) drop-shadow(0 0 3px var(--g))}12%{filter:brightness(1.55) drop-shadow(0 0 8px var(--g))}27%{filter:brightness(.8) drop-shadow(0 0 2px var(--g))}41%{filter:brightness(1.4) drop-shadow(0 0 6px var(--g))}58%{filter:brightness(.9) drop-shadow(0 0 3px var(--g))}73%{filter:brightness(1.6) drop-shadow(0 0 9px var(--g))}88%{filter:brightness(1) drop-shadow(0 0 3px var(--g))}}@keyframes limhue{to{filter:hue-rotate(360deg)}}
 @keyframes limflow{to{background-position:150% 0}}@keyframes limshine{to{background-position:166.67% 0}}.rfc{background:#fefce8;border:2px solid #facc15;border-radius:12px;padding:10px;margin:8px 0}
 .nm{cursor:pointer}.pen{height:24px;width:auto;vertical-align:middle;image-rendering:pixelated;cursor:pointer}.c-white{color:#1f2937}.c-blue{color:#2563eb}.c-red{color:#dc2626}.c-yellow{color:#ca8a04}.c-green{color:#16a34a}.c-orange{color:#ea580c}
 .c-blueg,.c-redorangeg,.c-greenhaze,.c-purplehaze,.c-rainbow,.owner{-webkit-background-clip:text;background-clip:text;color:transparent;background-size:300% 100%;animation:mv 4s linear infinite}
@@ -152,11 +153,16 @@ function doRedeem(){const v=$('rdc').value.trim();if(!v)return toast('Type a cod
 const setCodes=(n,on)=>{send({t:'setcodes',to:n,on,limit:$('cml')?+$('cml').value:5});closeMenu()};
 /* ===== Limited colors, Mega Lobby, Raffles ===== */
 const lt=h=>{const n=parseInt(h.slice(1),16),m=v=>Math.round(v+(255-v)*.55).toString(16).padStart(2,'0');return'#'+m(n>>16)+m(n>>8&255)+m(n&255)};
-const limCss=d=>{if(!d)return'';const s=d.stops,g=s.join(','),clip='-webkit-background-clip:text;background-clip:text;color:transparent;';
- if(d.kind=='solid')return'color:'+s[0];
- if(d.kind=='gradient')return clip+`background-image:linear-gradient(90deg,${g})`;
- if(d.kind=='animated')return clip+`background-image:linear-gradient(90deg,${g},${s[0]});background-size:300% 100%;animation:limflow 3s linear infinite;filter:drop-shadow(0 0 3px ${s[Math.floor(s.length/2)]}99)`;
- return clip+`background-image:linear-gradient(110deg,${s[0]} 0%,${s[1]||s[0]} 40%,${lt(s[1]||s[0])} 50%,${s[1]||s[0]} 60%,${s[0]} 100%);background-size:250% 100%;animation:limshine 2.6s linear infinite;filter:drop-shadow(0 0 3px ${s[1]||s[0]}99)`};
+const LIMDUR={flow:3,shine:2.6,pulse:2,flicker:1.3,hue:6};
+function limNorm(d){let k=d.kind,a=d.anim||'none';if(k=='animated'){k='gradient';a='flow'}else if(k=='shine'){k='gradient';a='shine'}return{k,a,sp:Math.min(4,Math.max(.4,+d.speed||1)),s:d.stops}}
+const limCss=d=>{if(!d)return'';const{k,a,sp,s}=limNorm(d),clip='-webkit-background-clip:text;background-clip:text;color:transparent;',dur=a in LIMDUR?(LIMDUR[a]/sp).toFixed(2)+'s':'',v=`--g:${s[Math.floor(s.length/2)]};`;
+ if(a=='flow')return v+clip+`background-image:linear-gradient(90deg,${s.concat(s[0]).join(',')});background-size:300% 100%;animation:limflow ${dur} linear infinite;filter:drop-shadow(0 0 3px var(--g))`;
+ if(a=='shine'){const c0=s[0],c1=s[1]||lt(s[0]);return `--g:${c1};`+clip+`background-image:linear-gradient(110deg,${c0} 0%,${c1} 40%,${lt(c1)} 50%,${c1} 60%,${c0} 100%);background-size:250% 100%;animation:limshine ${dur} linear infinite;filter:drop-shadow(0 0 3px var(--g))`}
+ const base=k=='solid'?'color:'+s[0]:clip+`background-image:linear-gradient(90deg,${s.join(',')})`;
+ if(a=='pulse')return v+base+`;animation:limpulse ${dur} ease-in-out infinite`;
+ if(a=='flicker')return v+base+`;animation:limflick ${dur} ease-in-out infinite`;
+ if(a=='hue')return v+base+`;animation:limhue ${dur} linear infinite`;
+ return base};
 const rwHtml=r=>!r?'':[r.xp?`<b>${(+r.xp).toLocaleString('en-US')} XP</b>`:'',r.color&&limDefs[r.color]?`<b><span style="${limCss(limDefs[r.color])}">${esc(limDefs[r.color].name)}</span></b>`:'',r.mult?`<b>${r.mult}x multiplier</b>`:''].filter(Boolean).join(' + ');
 function buildCol(){const e=$('col');if(!you||!e)return;
  const base=[...(you.owner?[['ownerrainbow',0]]:[]),...colors.filter(c=>(you.owner||you.xp>=c[1])&&!(you.owner&&c[0]=='white'))].map(c=>`<option value="${c[0]}" ${(c[0]==you.color||(you.owner&&c[0]=='ownerrainbow'&&you.color=='white'))?'selected':''}>${CN[c[0]]||c[0]}</option>`).join('');
@@ -169,17 +175,17 @@ const rwEditor=()=>`<div style="background:#f0fdf4;border-radius:12px;padding:10
 <div id="rwprev" style="font-size:26px;min-height:36px;margin:4px 0"></div>
 <div id="rwnew" style="display:none;border-top:1px solid #bbf7d0;padding-top:8px;margin-top:6px"><b>🎨 New limited color</b>
 <input id="lcn" maxlength="20" placeholder="Color name (e.g. Ruby Haze)" oninput="lcPrev()" style="width:100%;border:2px solid #16a34a;margin:6px 0">
-<select id="lck" onchange="lcPrev()" style="width:100%;margin-bottom:6px"><option value="gradient">Gradient</option><option value="animated">Animated gradient (moving)</option><option value="shine">Shiny (gleam sweeps across)</option><option value="solid">Solid color</option></select>
+<small>Style · Animation · Speed</small><div style="display:flex;gap:6px;margin-bottom:6px"><select id="lck" onchange="lcPrev()" style="flex:1"><option value="gradient">Gradient</option><option value="solid">Solid color</option></select><select id="lca" onchange="lcPrev()" style="flex:2"><option value="none">No animation</option><option value="flow">🌊 Flow (colors move)</option><option value="shine">✨ Shine (gleam sweeps)</option><option value="pulse">💓 Pulse (breathing glow)</option><option value="flicker">🔥 Flicker (fire)</option><option value="hue">🌈 Rainbow cycle</option></select><select id="lcs" onchange="lcPrev()" style="flex:1"><option value="0.5">Slow</option><option value="1" selected>Normal</option><option value="2">Fast</option><option value="3">Turbo</option></select></div>
 <div style="display:flex;gap:8px;align-items:center"><input id="lc1" type="color" value="#ff0000" oninput="lcPrev()" style="width:56px;height:40px;padding:2px"><span id="lcrow" style="display:flex;gap:8px;align-items:center"><input id="lc2" type="color" value="#ffff00" oninput="lcPrev()" style="width:56px;height:40px;padding:2px"><label style="font-size:16px;white-space:nowrap"><input id="lc3on" type="checkbox" onchange="lcPrev()"> 3rd</label><input id="lc3" type="color" value="#ff8800" oninput="lcPrev()" style="width:56px;height:40px;padding:2px"></span></div>
 <div id="lcprev" style="font-size:28px;margin:8px 0"></div><button class="go" type="button" onclick="lcCreate()">Create color</button></div></div>`;
 function rwFill(sel){const e=$('rwcol');if(!e)return;const v=sel!==undefined?sel:e.value;e.innerHTML='<option value="">No limited color</option>'+Object.values(limDefs).map(d=>`<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('');e.value=limDefs[v]?v:'';rwPrev()}
 function rwPrev(){const e=$('rwprev'),c=$('rwcol');if(!e||!c)return;const d=limDefs[c.value];e.innerHTML=d?`<span style="${limCss(d)}">${esc(d.name)}</span>`:''}
 const rwRead=()=>({xp:Math.max(0,Math.floor(+$('rwxp').value)||0),color:$('rwcol').value,mult:+$('rwmult').value||0});
 function rwNewToggle(){const n=$('rwnew');n.style.display=n.style.display=='none'?'block':'none';lcPrev()}
-function lcRead(){const k=$('lck').value,st=[$('lc1').value];if(k!='solid'){st.push($('lc2').value);if($('lc3on').checked)st.push($('lc3').value)}return{name:$('lcn').value,kind:k,stops:st}}
-function lcPrev(){const e=$('lcprev');if(!e)return;const d=lcRead();$('lcrow').style.display=d.kind=='solid'?'none':'flex';e.innerHTML=`<span style="${limCss(d)}">${esc(d.name||'Sample Name')}</span>`}
+function lcRead(){const k=$('lck').value,st=[$('lc1').value];if(k!='solid'){st.push($('lc2').value);if($('lc3on').checked)st.push($('lc3').value)}return{name:$('lcn').value,kind:k,anim:$('lca').value,speed:+$('lcs').value,stops:st}}
+function lcPrev(){const e=$('lcprev');if(!e)return;const fl=[...$('lca').options].find(o=>o.value=='flow');fl.disabled=$('lck').value=='solid';if(fl.disabled&&$('lca').value=='flow')$('lca').value='none';const d=lcRead();$('lcrow').style.display=d.kind=='solid'?'none':'flex';e.innerHTML=`<span style="${limCss(d)}">${esc(d.name||'Sample Name')}</span>`}
 const lcCreate=()=>send({t:'limcreate',...lcRead()});
-function lcList(){const e=$('lcl');if(!e)return;e.innerHTML=Object.values(limDefs).map(d=>`<div class="row"><span style="font-size:20px"><span style="${limCss(d)}">${esc(d.name)}</span> <small>${d.kind}</small></span><button class="no" style="font-size:14px;padding:6px 10px" onclick="if(confirm('Delete ${esc(d.name)}? Players who own it will lose it.'))send({t:'limdel',id:'${esc(d.id)}'})">✕</button></div>`).join('')||'<small>None yet.</small>'}
+function lcList(){const e=$('lcl');if(!e)return;e.innerHTML=Object.values(limDefs).map(d=>`<div class="row"><span style="font-size:20px"><span style="${limCss(d)}">${esc(d.name)}</span> <small>${(n=>n.k+(n.a!='none'?' · '+n.a:''))(limNorm(d))}</small></span><button class="no" style="font-size:14px;padding:6px 10px" onclick="if(confirm('Delete ${esc(d.name)}? Players who own it will lose it.'))send({t:'limdel',id:'${esc(d.id)}'})">✕</button></div>`).join('')||'<small>None yet.</small>'}
 /* Mega Lobby (owner) */
 function openMega(){showReqs=false;const mm=$('menu');mm.style.display='block';
  mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 6px">🏟️ Create Mega Lobby</h3><small>Up to 30 players. You host and watch; the last player standing wins the reward.</small>
