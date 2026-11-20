@@ -19,11 +19,11 @@ const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
-const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct});
+const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct,lim:c.u.lim||[]});
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,party:!!c.plob,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
-function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
+function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,limMsg());send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
 function logout(c){if(c.end)finishEnd(c,false);if(c.party)ptLeave(c);c.plob=false;if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null;lobby()}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
@@ -86,7 +86,7 @@ function inboxAdd(name,acct,item){const c=find(name);let u=null;if(c&&c.acct===a
  const inb=u.inbox=u.inbox||[];inb.push({id:Date.now()*1000+Math.floor(Math.random()*1000),read:false,at:Date.now(),...item});if(inb.length>50)inb.splice(0,inb.length-50);
  if(acct)save();if(c&&c.acct===acct)send(c,{t:'inbox',unread:inb.filter(x=>!x.read).length,new:item.text})}
 function note(r,text){inboxAdd(r.name,true,{kind:'modreq',text})}
-function onLogin(c){const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}if(isMod(c))send(c,{t:'reports',list:reportList(c)});if(c.u.lev)send(c,liveStatus(c))}
+function onLogin(c){sendRaffles(c);const un=(c.u.inbox||[]).filter(x=>!x.read).length;if(un)send(c,{t:'inbox',unread:un,new:'📬 You have '+un+' new inbox message'+(un>1?'s':'')});if(canView(c))send(c,{t:'modreqs',list:reqList()});if(c.u.owner)send(c,{t:'ideas',list:ideaList()});if(c.acct){pushRooms([c.u.name]);pushFriends([c.u.name])}if(isMod(c))send(c,{t:'reports',list:reportList(c)});if(c.u.lev)send(c,liveStatus(c))}
 let poll=null,pollT,pollBc;
 const pkey=c=>c.u.name.toLowerCase();
 function pview(){const counts=poll.opts.map(()=>0);Object.values(poll.votes).forEach(i=>counts[i]++);return{id:poll.id,q:poll.q,opts:poll.opts,counts,total:Object.keys(poll.votes).length,ms:Math.max(0,poll.endsAt-Date.now()),done:poll.done,by:poll.by}}
@@ -136,21 +136,24 @@ const blocked=(c,n)=>{const b=banInfo(n);if(!b)return false;send(c,banMsg(b));se
 // ===== Multiplayer (party) mode: up to 6 players, host starts, 3 lives each, last one standing wins =====
 const parties=new Map(),PMAX=6,PLIVES=3,PTURN=30000;
 const ptCode=()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s;do{s='';for(let i=0;i<5;i++)s+=A[crypto.randomInt(A.length)]}while([...parties.values()].some(p=>p.code===s));return s};
-const ptList=()=>[...parties.values()].filter(p=>!p.priv&&p.state==='lobby').map(p=>({id:p.id,host:pub(p.host.u),count:p.m.length,max:PMAX}));
+const ptList=()=>[...parties.values()].filter(p=>!p.priv&&p.state==='lobby'&&!p.done).map(p=>({id:p.id,host:pub(p.host.u),count:ptCount(p),max:p.max,mega:!!p.mega,name:p.name||'',rw:p.reward||null}));
 function ptSendList(){const l=ptList();for(const x of online.values())if(x.plob&&!x.party)send(x,{t:'plist',list:l})}
 function ptPush(p){const cur=p.state==='playing'?p.m[p.turn]:null;
- const o={t:'party',id:p.id,priv:p.priv,code:p.priv?p.code:'',host:p.host.u.name,max:PMAX,state:p.state,
-  members:p.m.map(x=>({...pub(x.u),lives:x.lives,out:!!x.out,left:!!x.left})),chain:p.chain,turn:cur?cur.u.name:'',
+ const o={t:'party',id:p.id,priv:p.priv,code:p.priv?p.code:'',host:p.host.u.name,max:p.max,mega:!!p.mega,mname:p.name||'',reward:p.reward||null,done:!!p.done,state:p.state,
+  members:p.m.map(x=>({...pub(x.u),lives:x.lives,out:!!x.out,left:!!x.left,spec:!!x.spec})),chain:p.chain,turn:cur?cur.u.name:'',
   ms:cur?Math.max(0,p.deadline-Date.now()):0,msg:p.msg||'',result:p.result||null};
  for(const x of p.m)if(!x.left)send(x.c,o)}
 function ptDelete(p){clearTimeout(p.tm);p.tok++;parties.delete(p.id);ptSendList()}
 const ptNext=(p,i)=>{const n=p.m.length;for(let k=1;k<=n;k++){const j=(i+k)%n;if(!p.m[j].out)return j}return i};
 function ptTimer(p){clearTimeout(p.tm);const tok=++p.tok;p.deadline=Date.now()+PTURN;
  p.tm=setTimeout(()=>{if(p.state!=='playing'||p.tok!==tok)return;const cur=p.m[p.turn];if(cur)ptLose(p,cur,dn(cur.u)+' ran out of time!')},PTURN)}
-function ptStartGame(p){p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=false});p.chain=[startWord()];p.turn=Math.random()*p.m.length|0;ptTimer(p);ptPush(p);ptSendList();lobby()}
+function ptStartGame(p){p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=!!x.spec});p.chain=[startWord()];{const al=p.m.map((x,i)=>i).filter(i=>!p.m[i].out);p.turn=al[Math.random()*al.length|0]}ptTimer(p);ptPush(p);ptSendList();lobby()}
 function ptFinish(p,w){clearTimeout(p.tm);p.tok++;p.state='lobby';let xp=0;
- if(w&&!w.left&&w.c.u){xp=Math.round(100*w.u.mult);addXp(w.c,xp)}
- p.result={winner:w?dn(w.u):null,name:w?w.u.name:'',xp:w&&!w.u.owner?xp:0,msg:p.msg||''};
+ let rw=null;
+ if(w&&!w.left&&w.c.u&&!w.spec){if(p.reward){rw=p.reward;giveReward(w.u.name,rw)}else{xp=Math.round(100*w.u.mult);addXp(w.c,xp)}}
+ if(p.mega)p.done=true;
+ p.result={winner:w?dn(w.u):null,name:w?w.u.name:'',xp:w&&!w.u.owner?xp:0,reward:rw,msg:p.msg||''};
+ if(rw&&w)for(const y of online.values())send(y,{t:'announce',text:'🏆 '+dn(w.u)+' won the Mega Lobby and got '+rwText(rw)+'!',from:'Mega Lobby'});
  p.m=p.m.filter(x=>!x.left);if(!p.m.length)return ptDelete(p);
  if(!p.m.includes(p.host))p.host=p.m[0];
  p.chain=[];ptPush(p);ptSendList();lobby()}
@@ -164,7 +167,8 @@ function ptLeave(c){const p=c.party;if(!p)return;c.party=null;const i=p.m.findIn
   const live=p.m.filter(y=>!y.out);
   if(live.length<=1){p.msg=dn(x.u)+' left the game';return ptFinish(p,live[0]||null)}
   p.msg=dn(x.u)+' left the game';if(p.m[p.turn]===x){p.turn=ptNext(p,p.turn);ptTimer(p)}ptPush(p)}
- else{p.m.splice(i,1);if(!p.m.length)return ptDelete(p);if(p.host===x)p.host=p.m[0];ptPush(p)}
+ else{if(p.mega&&p.host===x){for(const y of p.m)if(y!==x){y.c.party=null;send(y.c,{t:'pgone'});flash(y.c,'The Mega Lobby was closed by the host','warn')}return ptDelete(p)}
+  p.m.splice(i,1);if(!p.m.length)return ptDelete(p);if(p.host===x)p.host=p.m[0];ptPush(p)}
  ptSendList()}
 async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;const cur=p.m[p.turn];if(!cur||cur.c!==c||cur.busy)return;
  w=String(w).toLowerCase().trim();if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only');
@@ -173,6 +177,42 @@ async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;c
  if(p.state!=='playing'||p.tok!==tok||p.m[p.turn]!==cur||c.party!==p)return;
  if(ok){p.chain.push(w);p.msg='';addXp(c,Math.round(10*c.u.mult));p.turn=ptNext(p,p.turn);ptTimer(p);return ptPush(p)}
  flash(c,'That is unrelated!','bad');ptLose(p,cur,dn(cur.u)+' said "'+w+'" - unrelated!')}
+// ===== Limited colors, rewards, Mega Lobby helpers, Raffles =====
+const LIMSEED=[
+ {id:'l_goldenhaze',name:'Golden Haze',kind:'shine',stops:['#b8860b','#ffd700']},
+ {id:'l_bluehaze',name:'Blue Haze',kind:'gradient',stops:['#2563eb','#06b6d4','#10b981']},
+ {id:'l_firerampage',name:'Fire Rampage',kind:'animated',stops:['#dc2626','#f97316','#facc15']},
+ {id:'l_silverhaze',name:'Silver Haze',kind:'shine',stops:['#4b5563','#9ca3af']}];
+function limSeed(){db.limcolors=db.limcolors||{};if(!db.limSeeded){for(const d of LIMSEED)if(!db.limcolors[d.id])db.limcolors[d.id]=d;db.limSeeded=true}}
+const hasLim=id=>typeof id==='string'&&Object.prototype.hasOwnProperty.call(db.limcolors,id);
+const ownsLim=(u,id)=>hasLim(id)&&!!(u.owner||(u.lim||[]).includes(id));
+const limMsg=()=>({t:'limdefs',defs:db.limcolors});
+const pushLim=()=>{const m=limMsg();for(const x of online.values())send(x,m)};
+const ptCount=p=>p.m.filter(x=>!x.spec&&!x.left).length;
+function rwNorm(r){r=r&&typeof r==='object'?r:{};const xp=Math.max(0,Math.min(1e9,Math.floor(+r.xp)||0)),color=hasLim(r.color)?r.color:'',mult=(+r.mult===1.5||+r.mult===2)?+r.mult:0;return(xp||color||mult)?{xp,color,mult}:null}
+const rwText=r=>[r.xp?r.xp.toLocaleString('en-US')+' XP':'',r.color&&hasLim(r.color)?db.limcolors[r.color].name:'',r.mult?r.mult+'x XP multiplier':''].filter(Boolean).join(' + ')||'a surprise';
+function giveReward(name,r){const k=acctName(name),u=k&&db.users[k];if(!u||u.owner||!r)return false;
+ if(r.xp){u.xp+=r.xp;u.bal+=r.xp;gain(u,r.xp)}
+ if(r.color&&hasLim(r.color)){u.lim=u.lim||[];if(!u.lim.includes(r.color))u.lim.push(r.color)}
+ if(r.mult&&r.mult>u.mult)u.mult=r.mult;
+ save();const c=find(u.name);if(c&&c.u===u)send(c,{t:'me',me:me(c)});return true}
+const pubN=n=>db.users[n]?pub(db.users[n]):{name:n,dn:n,color:'white',xp:0};
+// ---- raffles ----
+const rtim=new Map();let rpT=0;
+function schedR(r){clearTimeout(rtim.get(r.id));rtim.set(r.id,setTimeout(()=>drawRaffle(r.id),Math.min(2147483000,Math.max(0,r.endsAt-Date.now()))))}
+const raffleList=c=>{const now=Date.now();return db.raffles.filter(r=>!r.done||now-(r.doneAt||0)<3*864e5).slice(-20).map(r=>({id:r.id,title:r.title,rw:r.reward,rwt:rwText(r.reward),winners:r.winners,ms:Math.max(0,r.endsAt-now),count:r.entries.length,mine:!!(c.u&&c.acct&&r.entries.includes(c.u.name)),done:r.done,win:r.done?r.win.map(pubN):[]}))};
+const sendRaffles=c=>{if(c.u)send(c,{t:'raffles',list:raffleList(c)})};
+const pushRafflesNow=()=>{clearTimeout(rpT);rpT=0;for(const x of online.values())sendRaffles(x)};
+const pushRaffles=()=>{if(!rpT)rpT=setTimeout(()=>{rpT=0;for(const x of online.values())sendRaffles(x)},300)};
+function drawRaffle(id){const r=db.raffles.find(x=>x.id===id);if(!r||r.done)return;if(Date.now()<r.endsAt-100)return schedR(r);
+ r.done=true;r.doneAt=Date.now();rtim.delete(r.id);
+ const pool=r.entries.filter(n=>db.users[n]&&!db.users[n].owner),win=[];
+ while(win.length<r.winners&&pool.length)win.push(pool.splice(crypto.randomInt(pool.length),1)[0]);
+ r.win=win;
+ for(const n of win){giveReward(n,r.reward);inboxAdd(n,true,{kind:'raffle',text:'🎉 You won the raffle'+(r.title?' "'+r.title+'"':'')+'! Prize: '+rwText(r.reward)})}
+ save();
+ for(const x of online.values())send(x,{t:'rafflewin',id:r.id,title:r.title,rw:r.reward,win:win.map(pubN),entered:!!(x.u&&x.acct&&r.entries.includes(x.u.name)),count:r.entries.length});
+ pushRafflesNow()}
 // ===== Redeem codes =====
 const CODE_MAXXP=1000,hasCode=k=>Object.prototype.hasOwnProperty.call(db.codes,k);
 const canCode=c=>c.u&&c.acct&&(c.u.owner||c.u.codes);
@@ -226,6 +266,43 @@ const handlers={
   if(x.used.length>=x.max)return flash(c,'Code is expired','bad');
   if(x.used.some(n=>lc(n)==lc(c.u.name)))return flash(c,'You already redeemed this code','warn');
   x.used.push(c.u.name);(x.log=x.log||[]).push({n:c.u.name,at:now});c.rfail=0;addXp(c,x.xp);save();send(c,{t:'redeemed',xp:x.xp});pushCodes()},
+ limcreate(c,m){if(!c.u?.owner||!c.acct)return;const name=String(m.name||'').trim().replace(/\s+/g,' ');
+  if(!/^[A-Za-z0-9 ]{2,20}$/.test(name)||filter.check(name))return flash(c,'Color name: 2-20 letters/numbers/spaces (no bad words)','bad');
+  const kind=['solid','gradient','animated','shine'].includes(m.kind)?m.kind:'gradient',hx=/^#[0-9a-f]{6}$/i;
+  const stops=(Array.isArray(m.stops)?m.stops:[]).map(String).filter(x=>hx.test(x)).slice(0,3).map(x=>x.toLowerCase());
+  if(!stops.length||(kind!=='solid'&&stops.length<2))return flash(c,'Pick '+(kind==='solid'?'a color':'at least 2 colors'),'bad');
+  const id='l_'+name.toLowerCase().replace(/[^a-z0-9]/g,'');if(hasLim(id))return flash(c,'A limited color with that name already exists','bad');
+  if(Object.keys(db.limcolors).length>=40)return flash(c,'Too many limited colors (max 40). Delete one first.','bad');
+  db.limcolors[id]={id,name,kind,stops:kind==='solid'?stops.slice(0,1):stops};save();pushLim();send(c,{t:'limmade',id,name});flash(c,'Limited color "'+name+'" created','ok')},
+ limdel(c,m){if(!c.u?.owner||!c.acct)return;const id=String(m.id||'');if(!hasLim(id))return;delete db.limcolors[id];
+  for(const u of Object.values(db.users)){if(u.lim)u.lim=u.lim.filter(x=>x!==id);if(u.color===id)u.color='white'}
+  for(const r of db.raffles)if(!r.done&&r.reward.color===id)r.reward.color='';
+  for(const p of parties.values())if(p.reward&&p.reward.color===id)p.reward.color='';
+  save();pushLim();for(const x of online.values())if(x.u)send(x,{t:'me',me:me(x)});lobby();pushRafflesNow()},
+ megacreate(c,m){if(!c.u?.owner||!c.acct)return;if(c.party||c.bt||c.end)return flash(c,'Finish what you are doing first','warn');
+  const rw=rwNorm(m.reward);if(!rw)return flash(c,'Choose a winner reward (XP, a limited color or a multiplier)','bad');
+  const max=Math.max(2,Math.min(30,Math.floor(+m.max)||30));let name=String(m.name||'').trim().slice(0,30);if(name&&filter.check(name))name='';
+  if(c.pend){clearTimeout(c.pend.tm);send(c.pend.to,{t:'chalgone',from:c.u.name});c.pend=null}
+  if(c.watch){c.watch.spec.delete(c);c.watch=null}
+  c.plob=true;lobby();send(c,{t:'plist',list:ptList()});
+  const x={c,u:c.u,lives:PLIVES,out:true,left:false,spec:true},p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),code:ptCode(),priv:!!m.priv,state:'lobby',m:[x],host:x,chain:[],turn:0,tok:0,deadline:0,msg:'',result:null,tm:null,max,mega:true,name,reward:rw,done:false};
+  c.party=p;parties.set(p.id,p);ptPush(p);ptSendList();lobby();
+  if(!p.priv)for(const y of online.values())send(y,{t:'announce',text:'🏟️ MEGA LOBBY open ('+max+' players)! Winner gets '+rwText(rw)+'. Open Multiplayer Mode!',from:dn(c.u)})},
+ raffles(c){sendRaffles(c)},
+ rafflenew(c,m){if(!c.u?.owner||!c.acct)return;const rw=rwNorm(m.reward);if(!rw)return flash(c,'Choose a prize (XP, a limited color or a multiplier)','bad');
+  const title=String(m.title||'').trim().slice(0,30);if(title&&filter.check(title))return flash(c,'Please keep the title clean','bad');
+  const winners=Math.floor(+m.winners),mins=Math.floor(+m.mins);
+  if(!(winners>=1&&winners<=100))return flash(c,'Winners: 1 to 100','bad');if(!(mins>=1&&mins<=20160))return flash(c,'Duration: 1 minute to 14 days','bad');
+  if(db.raffles.filter(r=>!r.done).length>=10)return flash(c,'Too many live raffles (max 10)','warn');
+  const r={id:Date.now()*1000+Math.floor(Math.random()*1000),title,reward:rw,winners,endsAt:Date.now()+mins*60000,entries:[],done:false,win:[],at:Date.now()};
+  db.raffles.push(r);const di=db.raffles.findIndex(x=>x.done);if(db.raffles.length>80&&di>=0)db.raffles.splice(di,1);
+  schedR(r);save();pushRafflesNow();flash(c,'Raffle started!','ok');
+  for(const x of online.values())send(x,{t:'announce',text:'🎟️ New raffle'+(title?': '+title:'')+'! Prize: '+rwText(rw)+'. Tap Raffle to enter!',from:dn(c.u)})},
+ raffleenter(c,m){if(!c.acct)return flash(c,'Sign up for an account to enter raffles','bad');if(c.u.owner)return flash(c,'The owner cannot enter raffles','warn');
+  const r=db.raffles.find(x=>x.id===m.id);if(!r||r.done||Date.now()>=r.endsAt)return flash(c,'This raffle has ended','warn');
+  if(r.entries.includes(c.u.name))return flash(c,'You already entered!','warn');
+  r.entries.push(c.u.name);save();flash(c,'🎟️ You are in the raffle! Good luck!','ok');pushRaffles()},
+ raffledel(c,m){if(!c.u?.owner||!c.acct)return;const i=db.raffles.findIndex(x=>x.id===m.id);if(i<0)return;const r=db.raffles[i];clearTimeout(rtim.get(r.id));rtim.delete(r.id);db.raffles.splice(i,1);save();pushRafflesNow()},
  plobby(c,m){if(m.on){if(c.bt||c.end)return flash(c,'Finish what you are doing first','warn');
    if(c.pend){clearTimeout(c.pend.tm);send(c.pend.to,{t:'chalgone',from:c.u.name});c.pend=null}
    if(c.watch){c.watch.spec.delete(c);c.watch=null}
@@ -233,19 +310,19 @@ const handlers={
   else{ptLeave(c);c.plob=false;lobby();ptSendList()}},
  pcreate(c,m){if(!c.plob||c.party||c.bt||c.end)return;if(parties.size>=200)return flash(c,'Too many parties right now, try again soon','warn');
   if(Date.now()-(c.lastParty||0)<1500)return;c.lastParty=Date.now();
-  const x={c,u:c.u,lives:PLIVES,out:false,left:false},p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),code:ptCode(),priv:!!m.priv,state:'lobby',m:[x],host:x,chain:[],turn:0,tok:0,deadline:0,msg:'',result:null,tm:null};
+  const x={c,u:c.u,lives:PLIVES,out:false,left:false},p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),code:ptCode(),priv:!!m.priv,state:'lobby',m:[x],host:x,chain:[],turn:0,tok:0,deadline:0,msg:'',result:null,tm:null,max:PMAX};
   c.party=p;parties.set(p.id,p);ptPush(p);ptSendList();lobby()},
  pjoin(c,m){if(!c.plob||c.party||c.bt||c.end)return;let p;
   if(m.code!=null){const q=String(m.code).toUpperCase().replace(/[^A-Z0-9]/g,'');p=[...parties.values()].find(x=>x.priv&&x.code===q);if(!p)return flash(c,'No private party with that code','bad')}
   else{p=parties.get(String(m.id));if(!p||p.priv)return flash(c,'That party no longer exists','bad')}
-  if(p.state!=='lobby')return flash(c,'That game already started','warn');
-  if(p.m.length>=PMAX)return flash(c,'That party is full (max '+PMAX+' players)','warn');
+  if(p.state!=='lobby')return flash(c,'That game already started','warn');if(p.done)return flash(c,'That Mega Lobby has ended','warn');if(p.mega&&!c.acct)return flash(c,'Sign up for an account to join Mega Lobbies','bad');
+  if(ptCount(p)>=p.max)return flash(c,'That party is full (max '+p.max+' players)','warn');
   p.m.push({c,u:c.u,lives:PLIVES,out:false,left:false});c.party=p;ptPush(p);ptSendList();lobby()},
  pleave(c){ptLeave(c);send(c,{t:'pgone'});send(c,{t:'plist',list:ptList()});lobby()},
- pstart(c){const p=c.party;if(!p||p.state!=='lobby'||p.host.c!==c)return;if(p.m.length<2)return flash(c,'You need at least 2 players to start','warn');ptStartGame(p)},
+ pstart(c){const p=c.party;if(!p||p.state!=='lobby'||p.host.c!==c)return;if(p.done)return flash(c,'This Mega Lobby has ended','warn');if(ptCount(p)<2)return flash(c,'You need at least 2 players to start','warn');ptStartGame(p)},
  psubmit(c,m){ptSubmit(c,m.word)},
  ptype(c,m){const p=c.party;if(!p||p.state!=='playing'||!p.m[p.turn]||p.m[p.turn].c!==c)return;const txt=filter.clean(String(m.text||'').slice(0,24));for(const x of p.m)if(!x.left&&x.c!==c)send(x.c,{t:'ptyping',text:txt})},
- color(c,m){const k=COLORS.find(x=>x[0]==m.color),own=c.u.owner;if((k&&(own||c.u.xp>=k[1]))||(own&&m.color=='ownerrainbow')){c.u.color=m.color;if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()}},
+ color(c,m){const k=COLORS.find(x=>x[0]==m.color),own=c.u.owner;if((k&&(own||c.u.xp>=k[1]))||(own&&m.color=='ownerrainbow')||ownsLim(c.u,m.color)){c.u.color=m.color;if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()}},
  buy(c,m){const p=SHOP[m.mult];if(p&&c.u.bal>=p&&c.u.mult<+m.mult){c.u.bal-=p;c.u.mult=+m.mult;if(c.acct)save();send(c,{t:'me',me:me(c)})}},
  announce(c,m){if(!canAnn(c))return;const t=String(m.text||'').trim().slice(0,140);if(!t||Date.now()-(c.lastAnn||0)<3000)return;c.lastAnn=Date.now();for(const x of online.values())send(x,{t:'announce',text:t,from:dn(c.u)})},
  warn(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!t.c||!canHit(c,t.u))return;const x=String(m.text||'').trim().slice(0,100)||'Please follow the rules.';t.u.warns=(t.u.warns||0)+1;if(t.c.acct)save();send(t.c,{t:'warned',text:x,count:t.u.warns,by:dn(c.u)})},
@@ -386,5 +463,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
- ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ limSeed();db.raffles.forEach(r=>{if(!r.done)schedR(r)});ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
