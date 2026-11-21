@@ -80,6 +80,10 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 @keyframes tedrop{from{transform:translateY(-150%);opacity:0}}
 .coin{position:absolute;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;filter:drop-shadow(0 0 8px gold);animation:cpop .25s ease-out,cbob 1s .25s ease-in-out infinite}
 .coin.big{filter:drop-shadow(0 0 16px #fff) drop-shadow(0 0 10px gold)}
+.coin.inv{filter:invert(1) hue-rotate(170deg) drop-shadow(0 0 14px #0ff) drop-shadow(0 0 12px #f0f);animation:cpop .25s ease-out,invg .5s steps(1) infinite}
+@keyframes invg{0%{translate:0 0;skew:0deg}20%{translate:5px -3px;transform:skewX(8deg)}40%{translate:-6px 2px;transform:skewX(-6deg)}60%{translate:3px 4px;transform:none}80%{translate:-4px -4px;transform:skewX(5deg)}100%{translate:0 0}}
+.mus.glt>.g{animation:musgal .3s ease-in-out infinite,musglt .5s steps(1) infinite}
+@keyframes musglt{0%{filter:invert(1) hue-rotate(180deg) drop-shadow(5px 0 #f0f) drop-shadow(-5px 0 #0ff);translate:0 0;clip-path:none}18%{filter:invert(1) hue-rotate(120deg) contrast(2) drop-shadow(-7px 0 #f0f) drop-shadow(7px 0 #0f0);translate:10px 0;clip-path:inset(0 0 55% 0)}34%{filter:invert(1) hue-rotate(180deg) drop-shadow(4px 0 #0ff) drop-shadow(-4px 0 #f0f);translate:-12px 0;clip-path:inset(45% 0 0 0)}52%{filter:invert(1) hue-rotate(240deg) saturate(3) drop-shadow(6px 2px #ff0) drop-shadow(-6px -2px #0ff);translate:6px -4px;clip-path:none}70%{filter:invert(1) hue-rotate(180deg) brightness(1.6) drop-shadow(-5px 0 #f0f) drop-shadow(5px 0 #0ff);translate:-8px 3px;clip-path:inset(20% 0 30% 0)}86%{filter:invert(1) hue-rotate(160deg) drop-shadow(5px 0 #f0f) drop-shadow(-5px 0 #0ff);translate:0 0;clip-path:none}}
 @keyframes cpop{from{transform:scale(0)}to{transform:scale(1)}}@keyframes cbob{50%{transform:translateY(-8px)}}
 .cf{position:absolute;color:#fde047;font-weight:bold;text-shadow:0 0 6px #000,0 0 3px #000;animation:cup 1s forwards;pointer-events:none}@keyframes cup{to{transform:translateY(-60px);opacity:0}}
 #rbtn{position:fixed;right:16px;bottom:26px;z-index:25;background:#dc2626;box-shadow:0 4px 14px #0004}.rflag{cursor:pointer;opacity:.5;margin-left:6px}.rflag:hover{opacity:1}
@@ -584,7 +588,7 @@ function tokenEvent(m){if(teBusy)return;teBusy=true;const L=$('telayer'),bar=$('
  m.coins.forEach(c=>tt(()=>spawnCoin(m.id,c),m.startIn+c.t));
  tt(()=>{bar.style.display='none'},m.startIn+15000+1500);
  tt(()=>{L.style.display='none';L.innerHTML='';teBusy=false},m.startIn+15000+4000)}
-function spawnCoin(ev,c,burst){const d=document.createElement('div'),sz=c.big?88:60;d.className='coin'+(c.big?' big':'');d.textContent='🪙';d.style.cssText=`left:${burst?50:c.x}vw;top:${burst?50:c.y}vh;width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.85)}px`;
+function spawnCoin(ev,c,burst){const d=document.createElement('div'),sz=c.inv?104:c.big?88:60;d.className='coin'+(c.inv?' inv':c.big?' big':'');d.textContent='🪙';d.style.cssText=`left:${burst?50:c.x}vw;top:${burst?50:c.y}vh;width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.85)}px`;
  d.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();if(d.dataset.k)return;d.dataset.k=1;const r=d.getBoundingClientRect();coinPos[c.id]=[r.left,r.top];send({t:'coin',ev,id:c.id});d.remove()});
  $('coins').appendChild(d);if(burst)requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.transition='left .8s cubic-bezier(.2,.8,.3,1),top .8s cubic-bezier(.2,.8,.3,1)';d.style.left=c.x+'vw';d.style.top=c.y+'vh'}));tt(()=>d.remove(),c.life)}
 function coinFloat(m){const p=coinPos[m.id]||[innerWidth/2,innerHeight/2],f=document.createElement('div');f.className='cf';f.textContent=you&&you.owner?'🪙':'+'+m.xp;f.style.cssText=`left:${p[0]}px;top:${p[1]}px;font-size:${m.big?44:30}px`;$('coins').appendChild(f);setTimeout(()=>f.remove(),1000)}
@@ -593,24 +597,24 @@ let sdBusy=false;
 const MUS_FLIP=false; /* set to true if mustangconnectchain.png faces RIGHT (they should run to the left) */
 let stAud=null,stAsp=1.5,stSrc='mustangconnectchain.png',stBlob=false;
 function stStop(){if(stAud){try{stAud.pause();stAud.currentTime=0}catch(e){}stAud=null}}
-function stDust(L,x,y,big){const n=big?3:1;for(let i=0;i<n;i++){const d=document.createElement('div'),sz=18+Math.random()*26;d.className='dust';d.style.cssText=`left:${x+Math.random()*14}px;top:${y-sz/2+Math.random()*8}px;width:${sz}px;height:${sz}px;--d:${(.8+Math.random()*.7).toFixed(2)}s;--dx:${40+Math.random()*90}px;--dy:${-15-Math.random()*45}px`;d.onanimationend=()=>d.remove();L.appendChild(d)}
- for(let i=0,k=1+Math.random()*3|0;i<k;i++){const b=document.createElement('div'),s=2+Math.random()*3;b.className='dbit';b.style.cssText=`left:${x}px;top:${y}px;width:${s}px;height:${s}px;--dx:${25+Math.random()*110}px;--h:${14+Math.random()*46}px`;b.onanimationend=()=>b.remove();L.appendChild(b)}}
-function stGeom(y){const vm=Math.min(innerWidth,innerHeight),h=vm*(.10+y*.001),w=h*stAsp;return{h,w,top:y/100*innerHeight-h/2,S:innerWidth+20,E:w+20}}
-function stRun(L,y,dur){const g=stGeom(y),el=document.createElement('div'),inn=document.createElement('div'),fl=MUS_FLIP?'transform:scaleX(-1);':'';
- el.className='mus';el.style.cssText=`top:${g.top}px;height:${g.h}px;z-index:${Math.round(y)}`;inn.className='g';inn.style.animationDuration=(.26+Math.random()*.12).toFixed(2)+'s';inn.style.animationDelay='-'+(Math.random()*.3).toFixed(2)+'s';
+function stDust(L,x,y,big,k){k=k||1;const n=big?3:1;for(let i=0;i<n;i++){const d=document.createElement('div'),sz=(18+Math.random()*26)*k;d.className='dust';d.style.cssText=`left:${x+Math.random()*14}px;top:${y-sz/2+Math.random()*8}px;width:${sz}px;height:${sz}px;--d:${(.8+Math.random()*.7).toFixed(2)}s;--dx:${(40+Math.random()*90)*k}px;--dy:${(-15-Math.random()*45)*k}px`;d.onanimationend=()=>d.remove();L.appendChild(d)}
+ for(let i=0,k=1+Math.random()*3|0;i<k;i++){const b=document.createElement('div'),s=(2+Math.random()*3)*Math.sqrt(k);b.className='dbit';b.style.cssText=`left:${x}px;top:${y}px;width:${s}px;height:${s}px;--dx:${(25+Math.random()*110)*k}px;--h:${(14+Math.random()*46)*k}px`;b.onanimationend=()=>b.remove();L.appendChild(b)}}
+function stGeom(y){const vm=Math.min(innerWidth,innerHeight),h=vm*(.19+y*.0018),w=h*stAsp;return{h,w,top:y/100*innerHeight-h/2,S:innerWidth+20,E:w+20}}
+function stRun(L,y,dur,glt){const g=stGeom(y),el=document.createElement('div'),inn=document.createElement('div'),fl=MUS_FLIP?'transform:scaleX(-1);':'';
+ el.className='mus'+(glt?' glt':'');el.style.cssText=`top:${g.top}px;height:${g.h}px;z-index:${Math.round(y)}`;inn.className='g';inn.style.animationDuration=(.26+Math.random()*.12).toFixed(2)+'s';inn.style.animationDelay='-'+(Math.random()*.3).toFixed(2)+'s';
  [[2,.16,3],[1,.3,1.8]].forEach(([k,o,b])=>inn.appendChild(teImg(stSrc,'🐎',`position:absolute;top:0;height:100%;width:auto;left:${(MUS_FLIP?-1:1)*k*g.w*.14}px;opacity:${o};filter:blur(${b}px);${fl}`)));
  inn.appendChild(teImg(stSrc,'🐎',`position:relative;height:100%;width:auto;filter:blur(.7px);${fl}`));el.appendChild(inn);L.appendChild(el);
  const a=el.animate([{transform:`translateX(${g.S}px)`},{transform:`translateX(${-g.E}px)`}],{duration:dur,easing:'linear',fill:'forwards'});a.onfinish=()=>el.remove();
- const gy=g.top+g.h*.92;for(let i=0,n=3+(Math.random()*3|0);i<n;i++){const f=.06+Math.random()*.88;tt(()=>{const left=g.S-(g.S+g.E)*f;stDust(L,left+g.w*(MUS_FLIP?.15:.85),gy,Math.random()<.4)},dur*f)}}
+ const gy=g.top+g.h*.92;for(let i=0,n=3+(Math.random()*3|0);i<n;i++){const f=.06+Math.random()*.88;tt(()=>{const left=g.S-(g.S+g.E)*f;stDust(L,left+g.w*(MUS_FLIP?.15:.85),gy,glt||Math.random()<.4,g.h/140)},dur*f)}}
 function stampede(m){if(teBusy)return;teBusy=true;coinPos={};const L=$('stlayer'),DUR=25000;L.innerHTML='';L.style.display='block';
  const pr=new Image();pr.onload=()=>{if(pr.naturalHeight)stAsp=pr.naturalWidth/pr.naturalHeight};pr.src='mustangconnectchain.png';
  if(!stBlob){stBlob=true;fetch('mustangconnectchain.png').then(r=>r.ok?r.blob():null).then(b=>{if(b)stSrc=URL.createObjectURL(b)}).catch(()=>{})}
  try{stAud=new Audio('mustangstampede.mp3');stAud.loop=true;stAud.volume=.85;const p=stAud.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
  const lab=document.createElement('div');lab.className='stlab';lab.innerHTML=`<div class="t1">🐎 MUSTANG STAMPEDE</div><div class="t2">spawned by ${esc(m.by||'someone')}</div>`;L.appendChild(lab);
  const hz=document.createElement('div');hz.className='sthaze';L.appendChild(hz);
- for(let t=0;t<DUR-3200;t+=190+Math.random()*130)tt(()=>stRun(L,18+Math.random()*74,2700+Math.random()*1500),t);
+ for(let t=0;t<DUR-3200;t+=105+Math.random()*85)tt(()=>stRun(L,18+Math.random()*74,2700+Math.random()*1500),t);
  m.coins.forEach(c=>{const when=m.startIn+c.t,g=stGeom(c.y),X=c.x/100*innerWidth,dur=3000,left=X-g.w/2,tau=dur*(g.S-left)/(g.S+g.E);
-  tt(()=>stRun(L,c.y,dur),Math.max(0,when-tau));tt(()=>{spawnCoin(m.id,c);stDust(L,X,c.y/100*innerHeight+g.h*.4,true)},when)});
+  tt(()=>stRun(L,c.y,dur,c.inv),Math.max(0,when-tau));tt(()=>{spawnCoin(m.id,c);stDust(L,X,c.y/100*innerHeight+g.h*.4,true,g.h/140)},when)});
  for(let i=1;i<=6;i++)tt(()=>{if(stAud)stAud.volume=.85*(1-i/6)},DUR-1200+i*200);
  tt(()=>{stStop();L.style.display='none';L.innerHTML='';teBusy=false},DUR+200)}
 
