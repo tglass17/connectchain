@@ -16,15 +16,15 @@ const SHOP={'1.5':500,'2':1000};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
-const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct,lim:c.u.lim||[]});
+const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct,lim:c.u.lim||[],creq:(db.clans[c.u.creq]||{}).name||''});
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,party:!!c.plob,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
-function login(c,u,acct){if(c.u)logout(c);c.u=u;c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,limMsg());send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
-function logout(c){if(c.end)finishEnd(c,false);if(c.party)ptLeave(c);c.plob=false;if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null;lobby()}
+function login(c,u,acct){if(c.u)logout(c);c.u=u;if(acct)track(c,u);c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,limMsg());send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
+function logout(c){if(c.u&&c.acct)c.u.seen=Date.now();if(c.end)finishEnd(c,false);if(c.party)ptLeave(c);c.plob=false;if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null;lobby()}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
 const KINDS=[['rel_trg',300],['rel_bga',150],['rel_bgb',150],['ml',60],['rel_syn',60],['rel_gen',60],['rel_spc',60],['rel_com',60],['rel_par',60]];
@@ -137,6 +137,46 @@ const pushReports=()=>{for(const x of online.values())if(isMod(x))send(x,{t:'rep
 const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canAnn=c=>c.u&&c.acct&&(c.u.owner||c.u.mod||c.u.alpha);
 const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
+
+/* ---- clans ---- */
+const CLANMAX=5,clanKey=n=>lc(n),RESERVED=/^(owner|admin|mod|staff|system)$/i;
+const clanOf=u=>u&&u.clan&&db.clans[u.clan]||null,clanTagOf=u=>{const c=clanOf(u);return c?c.name:''};
+const clanMembers=c=>c.members.map(n=>db.users[n]).filter(Boolean);
+const clanTotal=(c,k)=>clanMembers(c).reduce((a,u)=>a+Math.max(0,LBF[k||'all'](u)),0);
+function clanView(c,viewer){const vu=viewer&&viewer.u,key=clanKey(c.name),mine=!!(vu&&vu.clan==key),isL=mine&&lc(vu.name)==lc(c.leader);
+ return{t:'clanview',name:c.name,leader:c.leader,leaderDn:dn(db.users[c.leader]||{name:c.leader}),max:CLANMAX,total:Math.round(clanTotal(c)),
+  members:clanMembers(c).map(u=>({...pub(u),v:Math.round(u.owner?0:u.xp||0),lead:lc(u.name)==lc(c.leader)})).sort((a,b)=>b.lead-a.lead||b.v-a.v),
+  mine,isLeader:isL,reqs:isL?c.req.map(n=>db.users[n]).filter(Boolean).map(pub):[],pending:!!(vu&&vu.creq==key),canJoin:!!(vu&&viewer.acct&&!vu.clan&&!vu.creq&&c.members.length<CLANMAX)}}
+function clanSelf(x){if(x&&x.u)send(x,{t:'clanme',clan:clanTagOf(x.u),creq:(db.clans[x.u.creq]||{}).name||''})}
+function clanPush(c){for(const n of c.members){const x=find(n);if(x&&x.acct)send(x,clanView(c,x))}}
+function clanDisband(c){for(const n of c.members){const u=db.users[n];if(u)u.clan=''}for(const n of c.req){const u=db.users[n];if(u&&u.creq==clanKey(c.name))u.creq=''}delete db.clans[clanKey(c.name)]}
+function clanDrop(u){if(u.creq){const c0=db.clans[u.creq];if(c0)c0.req=c0.req.filter(n=>lc(n)!=lc(u.name));u.creq=''}
+ const key=u.clan;if(!key)return null;const c=db.clans[key];u.clan='';if(!c)return null;c.members=c.members.filter(n=>lc(n)!=lc(u.name));
+ if(!c.members.length){clanDisband(c);return null}if(lc(c.leader)==lc(u.name))c.leader=c.members[0];return c}
+function clanBoards(){const cs=Object.values(db.clans),o={};for(const k in LBF)o[k]=cs.map(c=>({name:c.name,n:c.members.length,v:Math.round(clanTotal(c,k))})).sort((a,b)=>b.v-a.v||a.name.localeCompare(b.name)).slice(0,50);return o}
+/* ---- device tracking, linked bans, account manager ---- */
+const DEVRE=/^[a-f0-9]{16,48}$/;
+function track(c,u){if(db.users[u.name]!==u)return;u.seen=Date.now();if(c.dev){u.devs=u.devs||[];if(!u.devs.includes(c.dev)){u.devs.push(c.dev);if(u.devs.length>12)u.devs.shift()}}
+ if(c.ip){u.ips=u.ips||[];if(!u.ips.includes(c.ip)){u.ips.push(c.ip);if(u.ips.length>12)u.ips.shift()}}}
+const ownerDev=d=>Object.values(db.users).some(u=>u.owner&&(u.devs||[]).includes(d));
+function linkedOf(u){const names=new Set([u.name]),devs=new Set((u.devs||[]).filter(d=>!ownerDev(d)));let grew=true;
+ while(grew){grew=false;for(const x of Object.values(db.users)){if(x.owner||names.has(x.name))continue;if((x.devs||[]).some(d=>devs.has(d))){names.add(x.name);(x.devs||[]).forEach(d=>{if(!ownerDev(d))devs.add(d)});grew=true}}}
+ return{users:[...names].map(n=>db.users[n]).filter(Boolean),devs:[...devs]}}
+function kickName(n,b){const o=find(n);if(o){send(o,banMsg(b));setTimeout(()=>o.ws.close(),300)}}
+function banAcct(u,reason,by,mins){const b={until:mins?Date.now()+mins*6e4:0,reason:String(reason||'').slice(0,80),by};db.bans[lc(u.name)]=b;kickName(u.name,b);return b}
+function terminateAcct(u,reason,by){clanDrop(u);const n=u.name,b={until:0,reason:String(reason||'Account terminated').slice(0,80),by};db.bans[lc(n)]=b;kickName(n,b);
+ delete db.users[n];for(const t of Object.keys(db.tokens))if(db.tokens[t]===n)delete db.tokens[t];
+ for(const x of Object.values(db.users)){for(const k of['friends','fin','fout'])if(x[k])x[k]=x[k].filter(y=>lc(y)!=lc(n))}}
+function devGate(c,n){const d=c.dev&&db.devbans[c.dev];if(!d)return false;if(d.until&&d.until<Date.now()){delete db.devbans[c.dev];save();return false}
+ const k=n&&acctName(n),u=k&&db.users[k];if(u&&u.owner)return false;
+ const b={until:d.until||0,reason:d.reason||'Banned device',by:'system'};
+ if(u){if(d.term)terminateAcct(u,'Banned device','system');else db.bans[lc(u.name)]=b;save()}
+ send(c,banMsg(b));setTimeout(()=>c.ws.close(),300);return true}
+function acctRow(u){return{name:u.name,dn:dn(u),xp:u.xp||0,online:!!find(u.name),seen:u.seen||0,banned:!!banInfo(u.name),mod:!!u.mod,owner:!!u.owner}}
+function acctDetail(u){const lk=linkedOf(u),ips=(u.ips||[]).map(ip=>({ip,shared:Object.values(db.users).filter(x=>x!==u&&(x.ips||[]).includes(ip)).map(x=>x.name).slice(0,10)})),
+ devs=(u.devs||[]).map(d=>({id:d.slice(0,8),banned:!!db.devbans[d],owner:ownerDev(d),shared:Object.values(db.users).filter(x=>x!==u&&(x.devs||[]).includes(d)).map(x=>x.name).slice(0,10)}));
+ const b=banInfo(u.name);return{...acctRow(u),clan:clanTagOf(u),bal:u.bal||0,mult:u.mult||1,color:u.color,tag:u.tag||'',alpha:!!u.alpha,codes:!!u.codes,secs:u.secs||0,born:u.born||0,friends:(u.friends||[]).length,
+  ban:b?{until:b.until,reason:b.reason,by:b.by}:null,devs,ips,linked:lk.users.filter(x=>x!==u).map(x=>({name:x.name,banned:!!banInfo(x.name)}))}}
 const banInfo=n=>{const k=String(n||'').toLowerCase(),b=db.bans[k];if(!b)return null;if(b.until&&b.until<Date.now()){delete db.bans[k];save();return null}return b};
 const banMsg=b=>({t:'banned',manual:true,reason:b.reason||'',until:b.until||0});
 const blocked=(c,n)=>{const b=banInfo(n);if(!b)return false;send(c,banMsg(b));setTimeout(()=>c.ws.close(),300);return true};
@@ -235,7 +275,7 @@ const handlers={
   login(c,{name:n,xp:0,bal:0,mult:1,color:'white',tag:''},false)},
  signup(c,m){const n=String(m.name||'');if(blocked(c,n))return;if(!okName(n)||String(m.pass||'').length<6)return flash(c,'Valid name + password (6+ chars) needed','bad');
   if(find(n)&&find(n)!==c||Object.keys(db.users).some(k=>k.toLowerCase()==n.toLowerCase()))return flash(c,'Username taken','bad');
-  const u=mk(n,m.pass);u.owner=false;db.users[n]=u;const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=n;save();login(c,u,true);send(c,{t:'token',tk})},
+  const u=mk(n,m.pass);u.owner=false;u.born=Date.now();db.users[n]=u;const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=n;save();login(c,u,true);send(c,{t:'token',tk})},
  login(c,m){if(blocked(c,m.name))return;const u=db.users[m.name];if(!u||hash(String(m.pass),u.salt)!==u.hash)return flash(c,'Wrong username or password','bad');
   const o=find(u.name);if(o&&o!==c){logout(o);o.ws.close()}
   const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=u.name;save();login(c,u,true);send(c,{t:'token',tk})},
@@ -336,6 +376,39 @@ const handlers={
  buy(c,m){const p=SHOP[m.mult];if(p&&c.u.bal>=p&&c.u.mult<+m.mult){c.u.bal-=p;c.u.mult=+m.mult;if(c.acct)save();send(c,{t:'me',me:me(c)})}},
  announce(c,m){if(!canAnn(c))return;const t=String(m.text||'').trim().slice(0,140);if(!t||Date.now()-(c.lastAnn||0)<3000)return;c.lastAnn=Date.now();for(const x of online.values())send(x,{t:'announce',text:t,from:dn(c.u)})},
  warn(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!t.c||!canHit(c,t.u))return;const x=String(m.text||'').trim().slice(0,100)||'Please follow the rules.';t.u.warns=(t.u.warns||0)+1;if(t.c.acct)save();send(t.c,{t:'warned',text:x,count:t.u.warns,by:dn(c.u)})},
+ clancreate(c,m){if(!c.acct)return flash(c,'Sign up for an account to make a clan','bad');const u=c.u;if(u.clan)return flash(c,'You are already in a clan','bad');if(u.creq)return flash(c,'Cancel your pending join request first','bad');
+  const n=String(m.name||'').trim();if(!/^[A-Za-z0-9]{2,10}$/.test(n))return flash(c,'Clan name: 2 to 10 letters or numbers','bad');if(filter.check(n)||(RESERVED.test(n)&&!u.owner))return flash(c,'That clan name is not allowed','bad');
+  if(db.clans[clanKey(n)])return flash(c,'That clan name is taken','bad');
+  const cl={name:n,leader:u.name,members:[u.name],req:[],at:Date.now()};db.clans[clanKey(n)]=cl;u.clan=clanKey(n);save();flash(c,'Clan ['+n+'] created!','ok');clanSelf(c);clanPush(cl);lobby()},
+ clanjoin(c,m){if(!c.acct)return flash(c,'Sign up for an account to join a clan','bad');const u=c.u,cl=db.clans[clanKey(String(m.name||''))];if(!cl)return flash(c,'Clan not found','bad');
+  if(u.clan)return flash(c,'You are already in a clan','bad');if(u.creq)return flash(c,'You already have a pending request. Cancel it first.','bad');if(cl.members.length>=CLANMAX)return flash(c,'That clan is full','bad');if(cl.req.length>=30)return flash(c,'That clan has too many pending requests','bad');
+  cl.req.push(u.name);u.creq=clanKey(cl.name);save();inboxAdd(cl.leader,true,{kind:'clan',text:'⚔️ '+dn(u)+' wants to join your clan ['+cl.name+']'});flash(c,'Request sent to ['+cl.name+']','ok');clanSelf(c);clanPush(cl);send(c,clanView(cl,c))},
+ clancancel(c){if(!c.acct||!c.u.creq)return;const cl=db.clans[c.u.creq];if(cl)cl.req=cl.req.filter(n=>lc(n)!=lc(c.u.name));c.u.creq='';save();clanSelf(c);if(cl)clanPush(cl)},
+ clanresp(c,m){if(!c.acct)return;const cl=clanOf(c.u);if(!cl||lc(cl.leader)!=lc(c.u.name))return;const i=cl.req.findIndex(n=>lc(n)==lc(m.from));if(i<0)return;const k=acctName(m.from),a=k&&db.users[k];
+  if(m.accept&&a&&!a.clan&&cl.members.length>=CLANMAX)return flash(c,'Your clan is full (max '+CLANMAX+')','bad');
+  cl.req.splice(i,1);if(a&&a.creq==clanKey(cl.name))a.creq='';
+  if(a){if(m.accept){if(a.clan)flash(c,dn(a)+' is already in another clan','bad');else{cl.members.push(a.name);a.clan=clanKey(cl.name);inboxAdd(a.name,true,{kind:'clan',text:'🎉 You were accepted into ['+cl.name+']!'});flash(c,dn(a)+' joined your clan','ok')}}else inboxAdd(a.name,true,{kind:'clan',text:'❌ ['+cl.name+'] declined your join request'})}
+  save();clanPush(cl);if(a)clanSelf(find(a.name));lobby()},
+ clanleave(c){if(!c.acct||!c.u.clan)return;const name=clanTagOf(c.u),cl=clanDrop(c.u);save();flash(c,'You left ['+name+']','ok');clanSelf(c);if(cl)clanPush(cl);lobby()},
+ clankick(c,m){if(!c.acct)return;const cl=clanOf(c.u);if(!cl||lc(cl.leader)!=lc(c.u.name))return;const k=acctName(m.name),t=k&&db.users[k];if(!t||t===c.u||t.clan!=clanKey(cl.name))return;
+  clanDrop(t);inboxAdd(t.name,true,{kind:'clan',text:'🚪 You were removed from ['+cl.name+']'});save();clanSelf(find(t.name));clanPush(cl);lobby()},
+ clandisband(c){if(!c.acct)return;const cl=clanOf(c.u);if(!cl||lc(cl.leader)!=lc(c.u.name))return;const ms=cl.members.slice();for(const n of ms)if(lc(n)!=lc(c.u.name))inboxAdd(n,true,{kind:'clan',text:'💥 The clan ['+cl.name+'] was disbanded'});clanDisband(cl);save();for(const n of ms)clanSelf(find(n));flash(c,'Clan disbanded','ok');lobby()},
+ clanview(c,m){const cl=db.clans[clanKey(String(m.name||''))];send(c,cl?clanView(cl,c):{t:'clanview',gone:true,name:String(m.name||'')})},
+ clanlist(c,m){const q=lc(String(m.q||'').trim()).slice(0,10);send(c,{t:'clanlist',list:Object.values(db.clans).filter(x=>!q||lc(x.name).includes(q)).map(x=>({name:x.name,n:x.members.length,total:Math.round(clanTotal(x)),full:x.members.length>=CLANMAX})).sort((a,b)=>b.total-a.total).slice(0,30)})},
+  acctlist(c,m){if(!c.u?.owner||!c.acct)return;const q=lc(String(m.q||'').trim()).slice(0,20),all=Object.values(db.users).filter(u=>!q||lc(u.name).includes(q)||lc(u.display||'').includes(q));
+  all.sort((a,b)=>(find(b.name)?1:0)-(find(a.name)?1:0)||(b.seen||0)-(a.seen||0)||lc(a.name).localeCompare(lc(b.name)));send(c,{t:'acctlist',q,total:all.length,list:all.slice(0,40).map(acctRow)})},
+ acctview(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.name),u=k&&db.users[k];if(!u)return send(c,{t:'acctview',gone:true,name:String(m.name||'')});send(c,{t:'acctview',...acctDetail(u)})},
+ banlinked(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u||u.owner)return flash(c,'Account not found','bad');
+  const mins=Math.min(525600,Math.max(0,Math.floor(+m.mins)||0)),reason=String(m.reason||'Linked accounts').slice(0,80),term=!!m.terminate,lk=linkedOf(u),until=mins?Date.now()+mins*6e4:0;
+  for(const d of lk.devs)db.devbans[d]={at:Date.now(),until,reason,by:dn(c.u),from:u.name,term};
+  const names=lk.users.map(x=>x.name);for(const x of lk.users){if(term)terminateAcct(x,reason,dn(c.u));else banAcct(x,reason,dn(c.u),mins)}
+  for(const o of online.values())if(o.dev&&lk.devs.includes(o.dev)&&!(o.u&&o.u.owner)){send(o,banMsg({until,reason}));setTimeout(()=>o.ws.close(),300)}
+  save();console.log('BANLINKED',names.join(','),'devices',lk.devs.length,'terminate',term);flash(c,(term?'Terminated ':'Banned ')+names.length+' account(s) and blocked '+lk.devs.length+' device(s)','ok');send(c,{t:'acctdone',name:u.name})},
+ unbanlinked(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u)return flash(c,'Account not found (terminated accounts are deleted)','bad');
+  const lk=linkedOf(u);for(const d of new Set([...lk.devs,...(u.devs||[])]))delete db.devbans[d];for(const x of lk.users)delete db.bans[lc(x.name)];save();flash(c,'Unbanned '+lk.users.length+' account(s) and cleared their devices','ok');send(c,{t:'acctdone',name:u.name})},
+ acctterminate(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u||u.owner)return flash(c,'Account not found','bad');
+  const dv=(u.devs||[]).filter(d=>!ownerDev(d));if(m.devices)for(const d of dv)db.devbans[d]={at:Date.now(),until:0,reason:'Account terminated',by:dn(c.u),from:u.name,term:true};
+  terminateAcct(u,String(m.reason||'Account terminated'),dn(c.u));save();flash(c,u.name+' terminated','ok');send(c,{t:'acctdone',name:u.name,gone:true})},
  ban(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!canHit(c,t.u))return;let mins=Math.floor(+m.mins)||0;mins=mins<=0?0:Math.min(mins,525600);const k=t.u.name.toLowerCase();db.bans[k]={until:mins?Date.now()+mins*6e4:0,reason:String(m.reason||'').slice(0,80),by:dn(c.u)};save();console.log('BAN',t.u.name,'by',c.u.name,'mins',mins);if(t.c){send(t.c,banMsg(db.bans[k]));setTimeout(()=>t.c.ws.close(),300)}send(c,{t:'flash',text:t.u.name+' banned',kind:'ok'})},
  unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
@@ -456,7 +529,7 @@ const handlers={
  vote(c,m){if(!poll||poll.done||Date.now()>poll.endsAt||m.id!==poll.id)return;const i=m.i|0;if(i<0||i>=poll.opts.length)return;poll.votes[pkey(c)]=i;clearTimeout(pollBc);pollBc=setTimeout(bcPoll,250)},
  active(c){c.lastAct=Date.now();if(c.inact){c.inact=false;lobby()}},
  vis(c,m){c.hiddenSince=m.hidden?Date.now():0},
- lb(c){if(Date.now()-(c.lbAt||0)<3000)return;c.lbAt=Date.now();send(c,{t:'lb',...lbData(),fr:c.acct&&c.u?friendLb(c.u):null})},
+ lb(c){if(Date.now()-(c.lbAt||0)<3000)return;c.lbAt=Date.now();send(c,{t:'lb',...lbData(),fr:c.acct&&c.u?friendLb(c.u):null,clans:clanBoards()})},
  lbfind(c,m){if(Date.now()-(c.lbfAt||0)<400)return;c.lbfAt=Date.now();const q=String(m.q||'').trim().slice(0,16).toLowerCase();if(!q)return send(c,{t:'lbfind',q:'',exact:null,matches:[]});
   const us=Object.values(db.users),ex=us.find(x=>x.name.toLowerCase()==q||String(x.display||'').toLowerCase()==q),ms=us.filter(x=>x!==ex&&(x.name.toLowerCase().includes(q)||String(x.display||'').toLowerCase().includes(q))).slice(0,8).map(pub);
   send(c,{t:'lbfind',q,exact:ex?{...pub(ex),ranks:rankOf(ex)}:null,matches:ms})},
@@ -473,8 +546,8 @@ const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.spl
  tryRead(path.join(__dirname,'public',rel),()=>{const b=path.basename(rel);if(ASSETS.includes(b))tryRead(path.join(__dirname,b),nf);else nf()})});
 new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
  const c={ws,ip,u:null};if(bans[ip]>Date.now()){send(c,{t:'banned'});return ws.close()}
- ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;handlers[m.t]?.(c,m)});
+ ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.devbans=db.devbans||{};db.clans=db.clans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  limSeed();db.raffles.forEach(r=>{if(!r.done)schedR(r)});ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
