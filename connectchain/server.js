@@ -138,6 +138,7 @@ const isMod=c=>c.u&&c.acct&&(c.u.owner||c.u.mod);
 const canAnn=c=>c.u&&c.acct&&(c.u.owner||c.u.mod||c.u.alpha);
 const canHit=(c,u)=>u!==c.u&&!u.owner&&(c.u.owner||!u.mod);
 
+const pushCal=()=>{for(const x of online.values())send(x,{t:'cal',list:db.calendar})};
 /* ---- clans ---- */
 const CLANMAX=5,clanKey=n=>lc(n),RESERVED=/^(owner|admin|mod|staff|system)$/i;
 const clanOf=u=>u&&u.clan&&db.clans[u.clan]||null,clanTagOf=u=>{const c=clanOf(u);return c?c.name:''};
@@ -395,6 +396,14 @@ const handlers={
  clandisband(c){if(!c.acct)return;const cl=clanOf(c.u);if(!cl||lc(cl.leader)!=lc(c.u.name))return;const ms=cl.members.slice();for(const n of ms)if(lc(n)!=lc(c.u.name))inboxAdd(n,true,{kind:'clan',text:'💥 The clan ['+cl.name+'] was disbanded'});clanDisband(cl);save();for(const n of ms)clanSelf(find(n));flash(c,'Clan disbanded','ok');lobby()},
  clanview(c,m){const cl=db.clans[clanKey(String(m.name||''))];send(c,cl?clanView(cl,c):{t:'clanview',gone:true,name:String(m.name||'')})},
  clanlist(c,m){const q=lc(String(m.q||'').trim()).slice(0,10);send(c,{t:'clanlist',list:Object.values(db.clans).filter(x=>!q||lc(x.name).includes(q)).map(x=>({name:x.name,n:x.members.length,total:Math.round(clanTotal(x)),full:x.members.length>=CLANMAX})).sort((a,b)=>b.total-a.total).slice(0,30)})},
+ calget(c){send(c,{t:'cal',list:db.calendar})},
+ calsave(c,m){if(!isMod(c))return;const t=String(m.title||'').trim().slice(0,50),d=String(m.details||'').trim().slice(0,600),date=String(m.date||''),time=String(m.time||'');
+  if(!t)return flash(c,'Give the event a title','bad');if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||isNaN(new Date(date+'T12:00:00Z'))||date<'2000-01-01'||date>'2100-01-01')return flash(c,'Pick a valid date','bad');
+  if(time&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return flash(c,'Invalid time','bad');if(filter.check(t)||filter.check(d))return flash(c,'Event text contains a word that is not allowed','bad');
+  const cur=m.id?db.calendar.find(e=>e.id===m.id):null;if(m.id&&!cur)return flash(c,'Event not found','bad');
+  if(cur){Object.assign(cur,{title:t,details:d,date,time,edited:dn(c.u)})}else{if(db.calendar.length>=500)return flash(c,'Calendar is full (500 events). Delete old ones.','bad');db.calendar.push({id:Date.now()*1000+Math.floor(Math.random()*1000),title:t,details:d,date,time,by:dn(c.u),at:Date.now()})}
+  db.calendar.sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)||a.at-b.at);save();flash(c,cur?'Event updated':'Event added','ok');pushCal()},
+ caldel(c,m){if(!isMod(c))return;const i=db.calendar.findIndex(e=>e.id===m.id);if(i<0)return;db.calendar.splice(i,1);save();flash(c,'Event deleted','ok');pushCal()},
   acctlist(c,m){if(!c.u?.owner||!c.acct)return;const q=lc(String(m.q||'').trim()).slice(0,20),all=Object.values(db.users).filter(u=>!q||lc(u.name).includes(q)||lc(u.display||'').includes(q));
   all.sort((a,b)=>(find(b.name)?1:0)-(find(a.name)?1:0)||(b.seen||0)-(a.seen||0)||lc(a.name).localeCompare(lc(b.name)));send(c,{t:'acctlist',q,total:all.length,list:all.slice(0,40).map(acctRow)})},
  acctview(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.name),u=k&&db.users[k];if(!u)return send(c,{t:'acctview',gone:true,name:String(m.name||'')});send(c,{t:'acctview',...acctDetail(u)})},
@@ -549,5 +558,5 @@ new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.header
  ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
- db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.devbans=db.devbans||{};db.clans=db.clans||{};db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
+ db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.devbans=db.devbans||{};db.clans=db.clans||{};db.calendar=db.calendar||[];db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
  limSeed();db.raffles.forEach(r=>{if(!r.done)schedR(r)});ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
