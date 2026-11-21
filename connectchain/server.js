@@ -314,6 +314,7 @@ const handlers={
   const now=Date.now();if(c.rlock>now)return flash(c,'Too many wrong tries. Wait a minute.','warn');if(now-(c.lastRedeem||0)<1000)return;c.lastRedeem=now;
   const k=String(m.code||'').trim().toLowerCase(),x=hasCode(k)?db.codes[k]:null;
   if(!x){c.rfail=(c.rfail||0)+1;if(c.rfail>=8){c.rlock=now+6e4;c.rfail=0}return flash(c,'Invalid Code','bad')}
+  if(!c.u.owner&&x.by&&lc(x.by)==lc(c.u.name))return flash(c,"You can't redeem your own code",'bad');
   if(x.used.length>=x.max)return flash(c,'Code is expired','bad');
   if(x.used.some(n=>lc(n)==lc(c.u.name)))return flash(c,'You already redeemed this code','warn');
   x.used.push(c.u.name);(x.log=x.log||[]).push({n:c.u.name,at:now});c.rfail=0;addXp(c,x.xp);save();send(c,{t:'redeemed',xp:x.xp});pushCodes()},
