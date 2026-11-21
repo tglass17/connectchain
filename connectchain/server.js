@@ -124,12 +124,12 @@ function pushFriends(names){for(const x of online.values())if(x.acct&&x.u&&names
 function makeFriends(a,b){for(const[u,o]of[[a,b],[b,a]]){u.friends=u.friends||[];if(!hasF(u,o.name))u.friends.push(o.name);u.fin=(u.fin||[]).filter(x=>lc(x)!=lc(o.name));u.fout=(u.fout||[]).filter(x=>lc(x)!=lc(o.name))}}
 const evLeft=u=>u.lev?Math.max(0,u.lev.limit-(u.evUsed&&u.evUsed.d===ymd()?u.evUsed.n:0)):0;
 const liveStatus=c=>({t:'liveev',on:!!c.u.lev,limit:c.u.lev?c.u.lev.limit:0,left:evLeft(c.u)});
-let evt=null,evtCool=0;const EV_START=4000,EV_DUR=15000,EV_COST=10000,BH_START=6800,BH_SPAN=3500;
-function startEvent(by,kind){const bh=kind==='blackhole',startIn=bh?BH_START:EV_START,span=bh?BH_SPAN:EV_DUR,coins=[];let t=0,id=0;
- while(t<span){const big=Math.random()<0.08;coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:14+Math.random()*78,life:bh?(big?6500:7500):(big?2800:3500)});t+=(bh?50:170)+Math.random()*(bh?40:90)}
- let nb=coins.filter(c=>c.big).length;while(nb<4){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=bh?6500:2800;nb++}}
- const e=evt={id:Date.now(),coinsAt:Date.now()+startIn,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};const total=startIn+span+(bh?7500:3500)+1000;evtCool=Date.now()+total+60000;
- const msg={t:'tevent',kind:bh?'blackhole':'token',by:dn(by),id:e.id,startIn,coins};for(const x of online.values())send(x,msg);
+let evt=null,evtCool=0;const EV_START=4000,EV_DUR=15000,EV_COST=10000,BH_START=6800,BH_SPAN=3500,ST_START=1500,ST_SPAN=20500;
+function startEvent(by,kind){const bh=kind==='blackhole',st=kind==='stampede',startIn=bh?BH_START:st?ST_START:EV_START,span=bh?BH_SPAN:st?ST_SPAN:EV_DUR,coins=[];let t=0,id=0;
+ while(t<span){const big=Math.random()<(st?0.22:0.08);coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:st?18+Math.random()*72:14+Math.random()*78,life:st?3000:bh?(big?6500:7500):(big?2800:3500)});t+=st?260+Math.random()*120:(bh?50:170)+Math.random()*(bh?40:90)}
+ let nb=coins.filter(c=>c.big).length;while(nb<(st?9:4)){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=bh?6500:st?3000:2800;nb++}}
+ const e=evt={id:Date.now(),coinsAt:Date.now()+startIn,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};const total=startIn+span+(bh?7500:st?3000:3500)+1000;evtCool=Date.now()+total+60000;
+ const msg={t:'tevent',kind:bh?'blackhole':st?'stampede':'token',by:dn(by),id:e.id,startIn,coins};for(const x of online.values())send(x,msg);
  setTimeout(()=>{if(evt===e)evt=null},total)}
 const RCATS=['player','name','chat','bug','other'];
 const reportList=c=>db.reports.slice(-100).filter(r=>c.u.owner||!r.tmod).map(r=>({id:r.id,by:r.by,byDn:r.byDn,target:r.target,tdn:r.tdn,cat:r.cat,text:r.text,ctx:r.ctx,at:r.at,status:r.status}));
@@ -438,7 +438,7 @@ const handlers={
  setliveev(c,m){if(!c.u?.owner||!c.acct)return;const u=fuser(m.to);if(!u||u.owner)return flash(c,'Only regular accounts can get live events','bad');
   if(m.on)u.lev={limit:Math.max(1,Math.min(50,Math.floor(+m.limit)||3))};else delete u.lev;save();
   const o=find(u.name);if(o&&o.acct){send(o,{t:'me',me:me(o)});send(o,liveStatus(o))}lobby();flash(c,m.on?'Live events granted ('+u.lev.limit+' per day)':'Live events revoked','ok')},
- spawnevent(c,m){if(!c.u||!c.acct)return;const kind=m.kind==='blackhole'?'blackhole':'token';
+ spawnevent(c,m){if(!c.u||!c.acct)return;const kind=m.kind==='blackhole'?'blackhole':m.kind==='stampede'?'stampede':'token';
   if(c.u.owner){if(evt)return flash(c,'An event is already running','warn');return startEvent(c.u,kind)}
   if(!c.u.lev)return;if(evLeft(c.u)<=0)return flash(c,'You used all '+c.u.lev.limit+' of your events today','warn');if(evt)return flash(c,'An event is already running. Try again in a moment.','warn');
   startEvent(c.u,kind);const d=ymd(),n=c.u.evUsed&&c.u.evUsed.d===d?c.u.evUsed.n:0;c.u.evUsed={d,n:n+1};save();send(c,liveStatus(c))},
