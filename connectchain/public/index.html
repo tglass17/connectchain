@@ -70,6 +70,7 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 #enchain{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:38px;min-height:80px;margin:20px 0}
 #enw{font-size:32px;width:min(700px,92%);text-align:center;border:3px solid var(--t1);margin:10px 0}
 #mnd{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:170px;background:#fff;border-radius:14px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:300}#mnd button{display:block;width:100%;margin:4px 0;text-align:left;position:relative}
+#ptip{position:fixed;z-index:500;background:#111827;color:#fff;border-radius:12px;padding:10px 12px;font-size:15px;line-height:1.55;pointer-events:none;display:none;box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:270px}#ptip b{color:#fde68a}#ptip .sm{color:#9ca3af;font-size:13px}
 #coins{position:fixed;inset:0;z-index:150;pointer-events:none}
 #stlayer{position:fixed;inset:0;z-index:140;pointer-events:none;display:none;overflow:hidden}
 .mus{position:absolute;left:0;top:0;will-change:transform}.mus>.g{position:relative;height:100%;animation:musgal .3s ease-in-out infinite}.mus img,.mus span{display:block;height:100%;width:auto}.mus .gh{position:absolute;top:0;height:100%;width:auto}
@@ -310,6 +311,7 @@ function on(m){
  if(m.t=='modnote')banner(m.text,'ann',8000);
  if(m.t=='lb'){lbData=m;lbRender()}
  if(m.t=='lbfind'){lbFound=m;lbFoundRender()}
+ if(m.t=='pstats'){ptipC[m.name.toLowerCase()]={at:Date.now(),d:m};if(ptipN&&ptipN.toLowerCase()==m.name.toLowerCase()){ptip.innerHTML=ptipHTML(m)}}
  if(m.t=='cal'){calData=m.list||[];if(!calEdit)calRender()}
  if(m.t=='clanview'){if(clanShown&&String(m.name).toLowerCase()!=String(clanShown).toLowerCase())return;if(!m.gone&&you&&you.clan&&!clanShown)clanShown=m.name;clanRender(m)}
  if(m.t=='clanlist')clanListRender(m.list)
@@ -413,6 +415,20 @@ function mnBadge(){const n=(typeof inUnread=='number'?inUnread:0)+((typeof frien
 function mnToggle(){const d=$('mnd');d.style.display=d.style.display=='block'?'none':'block'}
 document.addEventListener('click',e=>{const d=$('mnd');if(d&&d.style.display=='block'&&!e.target.closest('#mnw'))d.style.display='none'});
 $('mnd').addEventListener('click',()=>setTimeout(()=>{$('mnd').style.display='none'},0),true);
+/* ---- hover stats tooltip ---- */
+const ptipC={};let ptipN=null,ptipT=0;const ptip=document.createElement('div');ptip.id='ptip';document.body.appendChild(ptip);
+const ptipHTML=d=>{if(!d)return '<span class="sm">Loading…</span>';const dt=d.since?new Date(d.since).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):'';
+ const head=`<div><b>${esc(d.dn)}</b>${d.clan?` <span class="sm">[${esc(d.clan)}]</span>`:''}</div><div class="sm">${d.owner?'👑 Owner · ':''}${esc(d.status)}${d.acct?'':' · guest'}</div>`;
+ if(!d.acct)return head+`<div>⭐ ${d.xp} XP · ${d.mult}x</div><div class="sm">Guests have no saved stats</div>`;
+ return head+`<div>⭐ ${d.owner?'∞':d.xp+' XP'} · ${d.mult}x multiplier${d.rank?' · rank #'+d.rank:''}</div>${d.owner?'':`<div>📅 Today <b>+${d.today}</b> · Week <b>+${d.week}</b> · Month <b>+${d.month}</b></div>`}<div>⏱ Played ${fmtT(d.secs)}${d.friends?' · 👥 '+d.friends+' friends':''}</div>${dt?`<div class="sm">Joined ${dt}</div>`:''}`};
+function ptipPlace(e){const w=ptip.offsetWidth,h=ptip.offsetHeight;ptip.style.left=Math.max(6,Math.min(innerWidth-w-6,e.clientX+14))+'px';ptip.style.top=Math.max(6,Math.min(innerHeight-h-6,e.clientY+18))+'px'}
+function ptipHide(){ptipN=null;clearTimeout(ptipT);ptip.style.display='none'}
+if(matchMedia('(hover:hover)').matches){
+ document.addEventListener('mouseover',e=>{const el=e.target.closest&&e.target.closest('.nm[data-n]');if(!el||!you)return;const n=el.dataset.n;if(n==ptipN)return;ptipN=n;const c=ptipC[n.toLowerCase()];ptip.innerHTML=ptipHTML(c&&Date.now()-c.at<15000?c.d:null);ptip.style.display='block';ptipPlace(e);
+  clearTimeout(ptipT);if(!(c&&Date.now()-c.at<15000))ptipT=setTimeout(()=>{if(ptipN==n)send({t:'pstats',name:n})},180)});
+ document.addEventListener('mousemove',e=>{if(ptipN)ptipPlace(e)});
+ document.addEventListener('mouseout',e=>{const el=e.target.closest&&e.target.closest('.nm[data-n]');if(el&&!(e.relatedTarget&&el.contains(e.relatedTarget)))ptipHide()});
+ document.addEventListener('mousedown',ptipHide);document.addEventListener('scroll',ptipHide,true)}
 const inbUpdate=()=>{$('inbn').innerHTML=inUnread?`<span class="bdg">${inUnread}</span>`:'';mnBadge()};
 const openInbox=()=>send({t:'inbox'});
 function renderInbox(L){showReqs=false;const mm=$('menu');mm.style.display='block';
