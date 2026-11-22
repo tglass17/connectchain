@@ -15,8 +15,8 @@ const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],
 const SHOP={'1.5':500,'2':1000};
 const canPay=(u,p)=>u.bal>=p&&u.xp>=p;
 function spend(u,p){u.xp-=p;u.bal-=p;gain(u,-p);{const k=COLORS.find(x=>x[0]==u.color);if(k&&!u.owner&&u.xp<k[1])u.color='white'}}
-const THX_ID='l_harvestfeast',THX_PRICE=8000,RB_PRICE=4000,THX_DAYS=7;
-const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train','tree','build'];
+const THX_ID='l_harvestfeast',THX_PRICE=6000,RB_PRICE=4000,THX_DAYS=7;
+const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0,qm:!!u.qmod}};
@@ -149,16 +149,17 @@ const QT={stump:n=>`Stump the Endless bot ${n}x`,win:n=>`Beat ${n} player${n>1?'
 const QABUSE=['mega','raffle','event'],canQ=c=>!!(c.acct&&c.u&&(c.u.owner||c.u.qmod));
 const qTitle=q=>q.title||QT[q.type](q.target);
 function qDay(u){const d=ymd();if(!u.qd||u.qd.d!==d)u.qd={d,p:{},c:[]};return u.qd}
-const qDone=(u,q)=>q.type==='xp'?(u.owner?0:roll(u).dx):(qDay(u).p[q.id]||0);
+const qMine=(u,q)=>q.byu?q.byu===u.name:q.by===dn(u);
+const qDone=(u,q)=>qMine(u,q)?0:q.type==='xp'?(u.owner?0:roll(u).dx):(qDay(u).p[q.id]||0);
 function qView(c){const u=c.u,ed=canQ(c),pl=!!(c.acct&&u&&!u.owner),d=pl?qDay(u):null;
- return{t:'quests',edit:ed,play:pl,types:Object.keys(QT),list:db.quests.filter(q=>q.on||ed).map(q=>{const pr=pl?Math.min(q.target,qDone(u,q)):0;return{id:q.id,type:q.type,target:q.target,title:qTitle(q),custom:q.title||'',on:q.on,reward:q.reward,rt:rwText(q.reward),prog:pr,done:pl&&pr>=q.target,claimed:!!(d&&d.c.includes(q.id)),...(ed?{n:qCnt(q.id)}:{})}})}}
+ return{t:'quests',edit:ed,play:pl,types:Object.keys(QT),list:db.quests.filter(q=>q.on||ed).map(q=>{const pr=pl?Math.min(q.target,qDone(u,q)):0;return{id:q.id,type:q.type,target:q.target,title:qTitle(q),custom:q.title||'',on:q.on,reward:q.reward,rt:rwText(q.reward),prog:pr,done:pl&&pr>=q.target,claimed:!!(d&&d.c.includes(q.id)),mine:pl&&qMine(u,q),...(ed?{n:qCnt(q.id)}:{})}})}}
 function qSend(c){if(!c.u)return;if(Date.now()-(c.qAt||0)<250){clearTimeout(c.qT);c.qT=setTimeout(()=>{c.qAt=0;qSend(c)},260);return}c.qAt=Date.now();send(c,qView(c))}
 function qProg(c,type,n){if(!c||!c.acct||!c.u||c.u.owner||!db.quests.length)return;const d=qDay(c.u),fin=[];
- for(const q of db.quests){if(!q.on||q.type==='xp')continue;if(!(q.type===type||(q.type==='abuse'&&QABUSE.includes(type))))continue;const was=d.p[q.id]||0;if(was>=q.target)continue;d.p[q.id]=Math.min(q.target,was+(n||1));if(d.p[q.id]>=q.target)fin.push(q)}
+ for(const q of db.quests){if(!q.on||q.type==='xp'||qMine(c.u,q))continue;if(!(q.type===type||(q.type==='abuse'&&QABUSE.includes(type))))continue;const was=d.p[q.id]||0;if(was>=q.target)continue;d.p[q.id]=Math.min(q.target,was+(n||1));if(d.p[q.id]>=q.target)fin.push(q)}
  if(fin.length){fin.forEach(q=>qLogDone(c.u,q));save();fin.forEach(q=>flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok'))}qSend(c)}
 const qCnt=(id)=>Object.keys(((db.qlog||{})[ymd()]||{})[id]||{}).length;
 function qLogDone(u,q){db.qlog=db.qlog||{};const day=ymd(),L=db.qlog[day]=db.qlog[day]||{},m=L[q.id]=L[q.id]||{};if(!m[u.name])m[u.name]={at:Date.now()};const ks=Object.keys(db.qlog).sort();while(ks.length>14)delete db.qlog[ks.shift()]}
-function qXp(u){if(!db.quests||!db.quests.length||u.owner)return;for(const q of db.quests){if(!q.on||q.type!=='xp')continue;const m=((db.qlog||{})[ymd()]||{})[q.id];if(m&&m[u.name])continue;if(roll(u).dx>=q.target){qLogDone(u,q);const c=find(u.name);if(c&&c.u===u){flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok');qSend(c)}}}}
+function qXp(u){if(!db.quests||!db.quests.length||u.owner)return;for(const q of db.quests){if(!q.on||q.type!=='xp'||qMine(u,q))continue;const m=((db.qlog||{})[ymd()]||{})[q.id];if(m&&m[u.name])continue;if(roll(u).dx>=q.target){qLogDone(u,q);const c=find(u.name);if(c&&c.u===u){flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok');qSend(c)}}}}
 function logGame(u,e){if(!u)return;if(e.hist&&e.hist.length>150)e.hist=e.hist.slice(-150);u.log=u.log||[];u.log.unshift({at:Date.now(),...e});if(u.log.length>100)u.log.length=100;for(let i=25;i<u.log.length;i++)delete u.log[i].hist;if(db.users[u.name]===u)save()}
 const pushQuests=()=>{for(const x of online.values())if(x.u){x.qAt=0;send(x,qView(x))}};
 /* ---- clans ---- */
@@ -446,10 +447,10 @@ const handlers={
   const r=rwNorm(m.reward);if(!r)return flash(c,'Pick a reward (XP, a limited color or a multiplier)','bad');
   if(!c.u.owner){if(r.mult)return flash(c,'Only the owner can give XP multipliers','bad');if(r.xp>5000)return flash(c,'Quest mods can give up to 5,000 XP per quest','bad')}
   const cur=m.id!=null?db.quests.find(q=>q.id===m.id):null;if(m.id!=null&&!cur)return flash(c,'Quest not found','bad');const on=m.on!==false;
-  if(cur)Object.assign(cur,{type,target,title,reward:r,on,edited:dn(c.u)});else{if(db.quests.length>=15)return flash(c,'Max 15 quests. Delete one first.','bad');db.quests.push({id:++db.questSeq,type,target,title,reward:r,on,by:dn(c.u),at:Date.now()})}
+  if(cur)Object.assign(cur,{type,target,title,reward:r,on,edited:dn(c.u)});else{if(db.quests.length>=15)return flash(c,'Max 15 quests. Delete one first.','bad');db.quests.push({id:++db.questSeq,type,target,title,reward:r,on,by:dn(c.u),byu:c.u.name,at:Date.now()})}
   save();flash(c,cur?'Quest updated':'Quest added','ok');pushQuests()},
  questdel(c,m){if(!canQ(c))return;const i=db.quests.findIndex(q=>q.id===m.id);if(i<0)return;db.quests.splice(i,1);save();flash(c,'Quest deleted','ok');pushQuests()},
- questclaim(c,m){if(!c.acct||c.u.owner)return;const q=db.quests.find(x=>x.id===m.id&&x.on);if(!q)return;const d=qDay(c.u);if(d.c.includes(q.id))return flash(c,'Already claimed today','warn');if(qDone(c.u,q)<q.target)return flash(c,'Quest not finished yet','warn');
+ questclaim(c,m){if(!c.acct||c.u.owner)return;const q=db.quests.find(x=>x.id===m.id&&x.on);if(!q)return;if(qMine(c.u,q))return flash(c,"You can't claim a quest you made",'bad');const d=qDay(c.u);if(d.c.includes(q.id))return flash(c,'Already claimed today','warn');if(qDone(c.u,q)<q.target)return flash(c,'Quest not finished yet','warn');
   d.c.push(q.id);qLogDone(c.u,q);db.qlog[ymd()][q.id][c.u.name].claimed=Date.now();giveReward(c.u.name,q.reward);save();flash(c,'🎁 Quest reward: '+rwText(q.reward),'ok');qSend(c)},
  setqmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.qmod=!!m.on;save();flash(c,dn(t.u)+(t.u.qmod?' can now moderate Daily Quests':' is no longer a quest moderator'),'ok');const x=find(t.u.name);if(x&&x.u===t.u){send(x,{t:'me',me:me(x)});if(t.u.qmod)flash(x,'You can now moderate Daily Quests!','ok');qSend(x)}},
  logs(c){if(c.u)send(c,{t:'logs',list:c.u.log||[],acct:!!c.acct})},
