@@ -406,6 +406,9 @@ const handlers={
   if(cur){Object.assign(cur,{title:t,details:d,date,time,edited:dn(c.u)})}else{if(db.calendar.length>=500)return flash(c,'Calendar is full (500 events). Delete old ones.','bad');db.calendar.push({id:Date.now()*1000+Math.floor(Math.random()*1000),title:t,details:d,date,time,by:dn(c.u),at:Date.now()})}
   db.calendar.sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)||a.at-b.at);save();flash(c,cur?'Event updated':'Event added','ok');pushCal()},
  caldel(c,m){if(!isMod(c))return;const i=db.calendar.findIndex(e=>e.id===m.id);if(i<0)return;db.calendar.splice(i,1);save();flash(c,'Event deleted','ok');pushCal()},
+ pstats(c,m){if(!c.u||Date.now()-(c.psAt||0)<100)return;c.psAt=Date.now();const k=String(m.name||'').slice(0,24),x=find(k),u=x?x.u:db.users[acctName(k)];if(!u)return;
+  const acct=x?!!x.acct:true,o=!!u.owner,g=acct&&!o?roll(u):null;
+  send(c,{t:'pstats',name:u.name,dn:dn(u),owner:o,acct,xp:o?null:u.xp||0,mult:u.mult||1,today:g?g.dx:0,week:g?g.wx:0,month:g?g.mx:0,rank:acct&&!o?rankOf(u).all.rank:0,secs:acct?Math.round(u.secs||0):0,since:acct?u.born||0:0,clan:clanTagOf(u),friends:acct?(u.friends||[]).length:0,status:x?(x.inact?'away':x.end?'endless':x.plob?'multiplayer':x.bt?'in battle':x.watch?'watching a battle':'online'):'offline'})},
   acctlist(c,m){if(!c.u?.owner||!c.acct)return;const q=lc(String(m.q||'').trim()).slice(0,20),all=Object.values(db.users).filter(u=>!q||lc(u.name).includes(q)||lc(u.display||'').includes(q));
   all.sort((a,b)=>(find(b.name)?1:0)-(find(a.name)?1:0)||(b.seen||0)-(a.seen||0)||lc(a.name).localeCompare(lc(b.name)));send(c,{t:'acctlist',q,total:all.length,list:all.slice(0,40).map(acctRow)})},
  acctview(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.name),u=k&&db.users[k];if(!u)return send(c,{t:'acctview',gone:true,name:String(m.name||'')});send(c,{t:'acctview',...acctDetail(u)})},
