@@ -35,17 +35,17 @@ const SYS='You judge a word-association game. Answer only YES or NO. YES if the 
 async function ai(a,b){const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':KEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:5,system:SYS,messages:[{role:'user',content:'First word: '+a+'\nSecond word: '+b}]})});
  const j=await r.json(),t=j.content&&j.content[0]&&j.content[0].text;if(!t)throw new Error('no answer');return /^\s*yes/i.test(t)}
 async function rel(a,b){if(KEY){const k=a+'|'+b;if(aiCache.has(k))return aiCache.get(k);try{const v=await ai(a,b);aiCache.set(k,v);return v}catch(e){console.log('AI check failed, using word list',e.message)}}return relOld(a,b)}
-function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,spec:new Set()};[a,b].forEach(x=>{if(x.watch){x.watch.spec.delete(x);x.watch=null}});a.bt=b.bt=bt;
+function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,t0:Date.now(),spec:new Set()};[a,b].forEach(x=>{if(x.watch){x.watch.spec.delete(x);x.watch=null}});a.bt=b.bt=bt;
  bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
  setTimeout(()=>{if(a.bt===bt){bt.live=true;reset(bt,Math.round(Math.random()))}},4200)}
 function reset(bt,turn){bt.chain=[WORDS[Math.random()*WORDS.length|0]];bt.turn=turn;push(bt)}
 const BTIDLE=+process.env.BT_IDLE_MS||60000;
 function idleWatch(bt){clearTimeout(bt.itm);clearTimeout(bt.iwarn);if(!bt.live)return;const cur=bt.p[bt.turn];if(!cur)return;
  bt.iwarn=setTimeout(()=>{if(cur.bt===bt&&bt.p[bt.turn]===cur)flash(cur,'⏳ Make a move or you will be kicked for inactivity!','warn')},Math.round(BTIDLE*.6));
- bt.itm=setTimeout(()=>{if(cur.bt!==bt||bt.p[bt.turn]!==cur)return;const o=bt.p[1-bt.p.indexOf(cur)];flash(cur,'You were kicked for being inactive.','bad');if(o)flash(o,dn(cur.u)+' was inactive and got kicked. You win!');end(cur,false)},BTIDLE)}
+ bt.itm=setTimeout(()=>{if(cur.bt!==bt||bt.p[bt.turn]!==cur)return;bt.why='inactive';const o=bt.p[1-bt.p.indexOf(cur)];flash(cur,'You were kicked for being inactive.','bad');if(o)flash(o,dn(cur.u)+' was inactive and got kicked. You win!');end(cur,false)},BTIDLE)}
 function push(bt){idleWatch(bt);bt.p.forEach((c,i)=>send(c,{t:'battle',opp:pub(bt.p[1-i].u),chain:bt.chain,lives:bt.lives,you:i,turn:bt.turn}));bt.spec.forEach(s=>send(s,specState(bt)))}
 function end(c,won){const bt=c.bt;if(!bt)return;clearTimeout(bt.itm);clearTimeout(bt.iwarn);const i=bt.p.indexOf(c),o=bt.p[1-i];bt.p.forEach(x=>{x.bt=null});
- const w=won?c:o;bt.spec.forEach(s=>{s.watch=null;send(s,{t:'specover',winner:w.u?dn(w.u):'?'})});bt.spec.clear();if(w.u){addXp(w,Math.round(100*w.u.mult));qProg(w,'win');send(w,{t:'over',win:true});send(w===c?o:c,{t:'over',win:false})}lobby()}
+ const w=won?c:o;{const secs=Math.round((Date.now()-(bt.t0||Date.now()))/1000);for(const x of bt.p)if(x.u){const op=x===c?o:c;logGame(x.u,{k:'battle',res:x===w?'win':'loss',opp:op&&op.u?dn(op.u):'?',words:bt.chain.length,secs,xp:x===w&&!x.u.owner?Math.round(100*x.u.mult):0,why:bt.why||''})}}bt.spec.forEach(s=>{s.watch=null;send(s,{t:'specover',winner:w.u?dn(w.u):'?'})});bt.spec.clear();if(w.u){addXp(w,Math.round(100*w.u.mult));qProg(w,'win');send(w,{t:'over',win:true});send(w===c?o:c,{t:'over',win:false})}lobby()}
 function strike(c){c.strikes=(c.strikes||0)+1;if(c.strikes>=3){bans[c.ip]=Date.now()+6e5;send(c,{t:'banned'});c.ws.close()}
  else flash(c,c.strikes==2?'⚠ FINAL WARNING: keep it up and you will be banned.':'⚠ Warning: that word is not allowed.','warn')}
 async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt.busy)return;
@@ -63,7 +63,7 @@ const TZ=process.env.TZ_NAME||'America/New_York',IDLE=+process.env.IDLE_MS||33*6
 const ymd=()=>new Date().toLocaleDateString('en-CA',{timeZone:TZ});
 function wk(d){const t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-(t.getUTCDay()+6)%7);return t.toISOString().slice(0,10)}
 function roll(u){const d=ymd(),w=wk(d),m=d.slice(0,7),g=u.g=u.g||{d,dx:0,w,wx:0,m,mx:0};if(g.d!==d){g.d=d;g.dx=0}if(g.w!==w){g.w=w;g.wx=0}if(g.m!==m){g.m=m;g.mx=0}return g}
-const gain=(u,n)=>{if(!n||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx=Math.max(0,g.dx+n);g.wx=Math.max(0,g.wx+n);g.mx=Math.max(0,g.mx+n)};
+const gain=(u,n)=>{if(!n||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx=Math.max(0,g.dx+n);g.wx=Math.max(0,g.wx+n);g.mx=Math.max(0,g.mx+n);qXp(u)};
 const LBF={day:u=>u.owner?0:roll(u).dx,week:u=>u.owner?0:roll(u).wx,month:u=>u.owner?0:roll(u).mx,all:u=>u.owner?0:u.xp,time:u=>u.secs||0};
 function rankOf(u){const us=Object.values(db.users),r={};for(const k in LBF){const v=LBF[k](u);r[k]={v:Math.round(v),rank:v>0?us.filter(x=>LBF[k](x)>v).length+1:0}}return r}
 function friendLb(u){const us=[u,...(u.friends||[]).map(n=>db.users[n]).filter(Boolean)],o={};for(const k in LBF)o[k]=us.map(x=>({...pub(x),v:Math.round(LBF[k](x))})).sort((a,b)=>b.v-a.v);return o}
@@ -103,7 +103,7 @@ function endPoll(){if(!poll||poll.done)return;poll.done=true;clearTimeout(pollT)
 const ENDCAP=500,ENDWORD=5,ENDBONUS=5,startWord=()=>WORDS[Math.random()*WORDS.length|0];
 const esend=(c,msg)=>{const e=c.end;send(c,{t:'end',chain:e.chain,words:e.words,streak:e.streak,turn:e.turn,msg})};
 const addEnd=(e,n)=>{e.xp=Math.min(ENDCAP,e.xp+n)};
-function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);
+function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);if(e.words>0||amt>0)logGame(c.u,{k:'endless',words:e.words,best:e.best,xp:amt});
  if(notify)send(c,{t:'endover',words:e.words,best:e.best,xp:amt,mult:c.u.mult,capped:e.xp>=ENDCAP});lobby()}
 const STOP=new Set('the and has have had was were are been being not but for with from that this these those you your they them their its his her our out about into over than then just also very too more most some any all each every other such only own same what which who whom when where why how there here can will would should could may might must does did get got let say said'.split(' '));
 const dmn=async(q,max)=>{const k='n|'+q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?md=p&max='+max+'&'+q);const j=(await r.json()).filter(x=>x.tags&&x.tags.some(t=>t=='n')).map(x=>x.word);cache.set(k,j);return j}catch{return[]}};
@@ -147,11 +147,15 @@ const qTitle=q=>q.title||QT[q.type](q.target);
 function qDay(u){const d=ymd();if(!u.qd||u.qd.d!==d)u.qd={d,p:{},c:[]};return u.qd}
 const qDone=(u,q)=>q.type==='xp'?(u.owner?0:roll(u).dx):(qDay(u).p[q.id]||0);
 function qView(c){const u=c.u,ed=canQ(c),pl=!!(c.acct&&u&&!u.owner),d=pl?qDay(u):null;
- return{t:'quests',edit:ed,play:pl,types:Object.keys(QT),list:db.quests.filter(q=>q.on||ed).map(q=>{const pr=pl?Math.min(q.target,qDone(u,q)):0;return{id:q.id,type:q.type,target:q.target,title:qTitle(q),custom:q.title||'',on:q.on,reward:q.reward,rt:rwText(q.reward),prog:pr,done:pl&&pr>=q.target,claimed:!!(d&&d.c.includes(q.id))}})}}
+ return{t:'quests',edit:ed,play:pl,types:Object.keys(QT),list:db.quests.filter(q=>q.on||ed).map(q=>{const pr=pl?Math.min(q.target,qDone(u,q)):0;return{id:q.id,type:q.type,target:q.target,title:qTitle(q),custom:q.title||'',on:q.on,reward:q.reward,rt:rwText(q.reward),prog:pr,done:pl&&pr>=q.target,claimed:!!(d&&d.c.includes(q.id)),...(ed?{n:qCnt(q.id)}:{})}})}}
 function qSend(c){if(!c.u)return;if(Date.now()-(c.qAt||0)<250){clearTimeout(c.qT);c.qT=setTimeout(()=>{c.qAt=0;qSend(c)},260);return}c.qAt=Date.now();send(c,qView(c))}
 function qProg(c,type,n){if(!c||!c.acct||!c.u||c.u.owner||!db.quests.length)return;const d=qDay(c.u),fin=[];
  for(const q of db.quests){if(!q.on||q.type==='xp')continue;if(!(q.type===type||(q.type==='abuse'&&QABUSE.includes(type))))continue;const was=d.p[q.id]||0;if(was>=q.target)continue;d.p[q.id]=Math.min(q.target,was+(n||1));if(d.p[q.id]>=q.target)fin.push(q)}
- if(fin.length){save();fin.forEach(q=>flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok'))}qSend(c)}
+ if(fin.length){fin.forEach(q=>qLogDone(c.u,q));save();fin.forEach(q=>flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok'))}qSend(c)}
+const qCnt=(id)=>Object.keys(((db.qlog||{})[ymd()]||{})[id]||{}).length;
+function qLogDone(u,q){db.qlog=db.qlog||{};const day=ymd(),L=db.qlog[day]=db.qlog[day]||{},m=L[q.id]=L[q.id]||{};if(!m[u.name])m[u.name]={at:Date.now()};const ks=Object.keys(db.qlog).sort();while(ks.length>14)delete db.qlog[ks.shift()]}
+function qXp(u){if(!db.quests||!db.quests.length||u.owner)return;for(const q of db.quests){if(!q.on||q.type!=='xp')continue;const m=((db.qlog||{})[ymd()]||{})[q.id];if(m&&m[u.name])continue;if(roll(u).dx>=q.target){qLogDone(u,q);const c=find(u.name);if(c&&c.u===u){flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok');qSend(c)}}}}
+function logGame(u,e){if(!u)return;u.log=u.log||[];u.log.unshift({at:Date.now(),...e});if(u.log.length>100)u.log.length=100;if(db.users[u.name]===u)save()}
 const pushQuests=()=>{for(const x of online.values())if(x.u){x.qAt=0;send(x,qView(x))}};
 /* ---- clans ---- */
 const CLANMAX=5,clanKey=n=>lc(n),RESERVED=/^(owner|admin|mod|staff|system)$/i;
@@ -214,6 +218,7 @@ function ptFinish(p,w){clearTimeout(p.tm);p.tok++;p.state='lobby';let xp=0;
  let rw=null;
  if(w&&!w.left&&w.c.u&&!w.spec){qProg(w.c,'mpwin');if(p.reward){rw=p.reward;giveReward(w.u.name,rw)}else{xp=Math.round(100*w.u.mult);addXp(w.c,xp)}}
  if(p.mega)p.done=true;
+ {const pl=p.m.filter(x=>!x.spec&&x.u);for(const x of pl)logGame(x.u,{k:'party',mega:!!p.mega,name:p.name||'',res:x===w?'win':w?'loss':'draw',players:pl.length,xp:x===w?xp:0,rw:x===w&&rw?rwText(rw):''})}
  p.result={winner:w?dn(w.u):null,name:w?w.u.name:'',xp:w&&!w.u.owner?xp:0,reward:rw,msg:p.msg||''};
  if(rw&&w)for(const y of online.values())send(y,{t:'announce',text:'🏆 '+dn(w.u)+' won the Mega Lobby and got '+rwText(rw)+'!',from:'Mega Lobby'});
  p.m=p.m.filter(x=>!x.left);if(!p.m.length)return ptDelete(p);
@@ -308,7 +313,7 @@ const handlers={
    const lc=x.toLowerCase();if(lc!==c.u.name.toLowerCase()&&(Object.keys(db.users).some(k=>k.toLowerCase()==lc)||[...online.values()].some(o=>o!==c&&((o.u.display||'').toLowerCase()==lc||o.u.name.toLowerCase()==lc))))return flash(c,'That display name is taken','bad')}
   c.u.display=x;if(c.acct)save();send(c,{t:'me',me:me(c)});if(c.bt&&c.bt.live)push(c.bt);lobby()},
  submit(c,m){submit(c,m.word)},
- forfeit(c){if(!c.bt)return send(c,{t:'nobattle'});end(c,false)},
+ forfeit(c){if(!c.bt)return send(c,{t:'nobattle'});c.bt.why='forfeit';end(c,false)},
  codeslist(c){if(canCode(c))send(c,codesMsg(c))},
  codemake(c,m){if(!canCode(c))return;const own=c.u.owner,raw=String(m.code||'').trim();
   if(!/^[A-Za-z0-9_-]{3,20}$/.test(raw)||raw.toLowerCase()==='__proto__')return flash(c,'Code: 3-20 letters, numbers, _ or -','bad');
@@ -432,8 +437,13 @@ const handlers={
   save();flash(c,cur?'Quest updated':'Quest added','ok');pushQuests()},
  questdel(c,m){if(!canQ(c))return;const i=db.quests.findIndex(q=>q.id===m.id);if(i<0)return;db.quests.splice(i,1);save();flash(c,'Quest deleted','ok');pushQuests()},
  questclaim(c,m){if(!c.acct||c.u.owner)return;const q=db.quests.find(x=>x.id===m.id&&x.on);if(!q)return;const d=qDay(c.u);if(d.c.includes(q.id))return flash(c,'Already claimed today','warn');if(qDone(c.u,q)<q.target)return flash(c,'Quest not finished yet','warn');
-  d.c.push(q.id);giveReward(c.u.name,q.reward);save();flash(c,'🎁 Quest reward: '+rwText(q.reward),'ok');qSend(c)},
+  d.c.push(q.id);qLogDone(c.u,q);db.qlog[ymd()][q.id][c.u.name].claimed=Date.now();giveReward(c.u.name,q.reward);save();flash(c,'🎁 Quest reward: '+rwText(q.reward),'ok');qSend(c)},
  setqmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.qmod=!!m.on;save();flash(c,dn(t.u)+(t.u.qmod?' can now moderate Daily Quests':' is no longer a quest moderator'),'ok');const x=find(t.u.name);if(x&&x.u===t.u){send(x,{t:'me',me:me(x)});if(t.u.qmod)flash(x,'You can now moderate Daily Quests!','ok');qSend(x)}},
+ logs(c){if(c.u)send(c,{t:'logs',list:c.u.log||[],acct:!!c.acct})},
+ questwho(c,m){if(!canQ(c))return;const q=db.quests.find(x=>x.id===m.id);if(!q)return;const ql=db.qlog||{},today=ymd(),day=ql[m.day]?String(m.day):today,ent=((ql[day]||{})[q.id])||{};
+  const days=Object.keys(ql).filter(d=>ql[d][q.id]&&Object.keys(ql[d][q.id]).length).sort().reverse();if(!days.includes(today))days.unshift(today);
+  let inprog=0;if(day===today)for(const u of Object.values(db.users)){if(u.owner||ent[u.name])continue;const pr=q.type==='xp'?roll(u).dx:(u.qd&&u.qd.d===today?(u.qd.p[q.id]||0):0);if(pr>0)inprog++}
+  send(c,{t:'questwho',id:q.id,title:qTitle(q),target:q.target,day,today,days,inprog,list:Object.entries(ent).map(([n,v])=>({...pubN(n),at:v.at,claimed:v.claimed||0})).sort((a,b)=>a.at-b.at)})},
   acctlist(c,m){if(!c.u?.owner||!c.acct)return;const q=lc(String(m.q||'').trim()).slice(0,20),all=Object.values(db.users).filter(u=>!q||lc(u.name).includes(q)||lc(u.display||'').includes(q));
   all.sort((a,b)=>(find(b.name)?1:0)-(find(a.name)?1:0)||(b.seen||0)-(a.seen||0)||lc(a.name).localeCompare(lc(b.name)));send(c,{t:'acctlist',q,total:all.length,list:all.slice(0,40).map(acctRow)})},
  acctview(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.name),u=k&&db.users[k];if(!u)return send(c,{t:'acctview',gone:true,name:String(m.name||'')});send(c,{t:'acctview',...acctDetail(u)})},
