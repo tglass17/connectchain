@@ -217,10 +217,11 @@ function ptDelete(p){clearTimeout(p.tm);p.tok++;parties.delete(p.id);ptSendList(
 const ptNext=(p,i)=>{const n=p.m.length;for(let k=1;k<=n;k++){const j=(i+k)%n;if(!p.m[j].out)return j}return i};
 function ptTimer(p){clearTimeout(p.tm);const tok=++p.tok;p.deadline=Date.now()+PTURN;
  p.tm=setTimeout(()=>{if(p.state!=='playing'||p.tok!==tok)return;const cur=p.m[p.turn];if(cur)ptLose(p,cur,dn(cur.u)+' ran out of time!')},PTURN)}
-function ptStartGame(p){p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=!!x.spec});p.chain=[startWord()];p.hist=[{k:'r',w:p.chain[0]}];{const al=p.m.map((x,i)=>i).filter(i=>!p.m[i].out);p.turn=al[Math.random()*al.length|0]}ptTimer(p);ptPush(p);ptSendList();lobby()}
+const PTXP={2:100,3:300,4:400,5:500};const ptWin=n=>n>=6?650:(PTXP[n]||100);
+function ptStartGame(p){p.n=p.m.filter(x=>!x.spec).length;p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=!!x.spec});p.chain=[startWord()];p.hist=[{k:'r',w:p.chain[0]}];{const al=p.m.map((x,i)=>i).filter(i=>!p.m[i].out);p.turn=al[Math.random()*al.length|0]}ptTimer(p);ptPush(p);ptSendList();lobby()}
 function ptFinish(p,w){clearTimeout(p.tm);p.tok++;p.state='lobby';let xp=0;
  let rw=null;
- if(w&&!w.left&&w.c.u&&!w.spec){qProg(w.c,'mpwin');if(p.reward){rw=p.reward;giveReward(w.u.name,rw)}else{xp=Math.round(100*w.u.mult);addXp(w.c,xp)}}
+ if(w&&!w.left&&w.c.u&&!w.spec){qProg(w.c,'mpwin');if(p.reward){rw=p.reward;giveReward(w.u.name,rw)}else{xp=Math.round(ptWin(p.n||2)*w.u.mult);addXp(w.c,xp)}}
  if(p.mega)p.done=true;
  {const pl=p.m.filter(x=>!x.spec&&x.u);for(const x of pl)logGame(x.u,{k:'party',mega:!!p.mega,name:p.name||'',res:x===w?'win':w?'loss':'draw',players:pl.length,xp:x===w?xp:0,rw:x===w&&rw?rwText(rw):'',hist:p.hist||[],names:pl.map(q=>dn(q.u)),me:dn(x.u)})}
  p.result={winner:w?dn(w.u):null,name:w?w.u.name:'',xp:w&&!w.u.owner?xp:0,reward:rw,msg:p.msg||''};
