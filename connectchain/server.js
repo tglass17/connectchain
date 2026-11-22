@@ -14,14 +14,13 @@ function ensureOwner(){const pw=process.env.OWNER_PASSWORD;if(!pw)return;if(!db.
 const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000],['purplehaze',7000]];
 const SHOP={'1.5':500,'2':1000};
 const THX_ID='l_harvestfeast',THX_PRICE=6000,RB_PRICE=4000,THX_DAYS=7;
-const NPLATES={np_gold:{n:'Golden Trim',p:1500},np_ocean:{n:'Ocean Wave',p:1500},np_blossom:{n:'Blossom',p:2000},np_ember:{n:'Ember Glow',p:2500},np_galaxy:{n:'Galaxy',p:3000}};
 const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
-const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0,qm:!!u.qmod,np:u.np||''}};
+const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0,qm:!!u.qmod}};
 const dn=u=>u.display||u.name;
 const specState=bt=>({t:'spec',p:bt.p.map(c=>pub(c.u)),chain:bt.chain,lives:bt.lives,turn:bt.turn,live:bt.live});
-const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct,lim:c.u.lim||[],themes:c.u.owner?['rainbow']:(c.u.themes||[]),nps:c.u.owner?Object.keys(NPLATES):(c.u.nps||[]),creq:(db.clans[c.u.creq]||{}).name||''});
+const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct,lim:c.u.lim||[],themes:c.u.owner?['rainbow']:(c.u.themes||[]),creq:(db.clans[c.u.creq]||{}).name||''});
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,party:!!c.plob,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
@@ -260,7 +259,7 @@ function limSeed(){db.limcolors=db.limcolors||{};if(!db.limSeeded){for(const d o
 const hasLim=id=>typeof id==='string'&&Object.prototype.hasOwnProperty.call(db.limcolors,id);
 const ownsLim=(u,id)=>hasLim(id)&&!!(u.owner||(u.lim||[]).includes(id));
 const thxOn=()=>!!(db.thx&&Date.now()<db.thx.end&&hasLim(THX_ID));
-const shopMsg=()=>({t:'shop',now:Date.now(),mult:SHOP,thx:thxOn()?{id:THX_ID,end:db.thx.end,price:THX_PRICE}:null,rb:RB_PRICE,plates:Object.entries(NPLATES).map(([id,v])=>({id,n:v.n,p:v.p}))});
+const shopMsg=()=>({t:'shop',now:Date.now(),mult:SHOP,thx:thxOn()?{id:THX_ID,end:db.thx.end,price:THX_PRICE}:null,rb:RB_PRICE,cols:Object.values(db.limcolors).filter(d=>d.id!==THX_ID&&d.price>0).map(d=>({id:d.id,price:d.price}))});
 const limMsg=()=>({t:'limdefs',defs:db.limcolors});
 const pushLim=()=>{const m=limMsg();for(const x of online.values())send(x,m)};
 const ptCount=p=>p.m.filter(x=>!x.spec&&!x.left).length;
@@ -350,7 +349,8 @@ const handlers={
   if(kind==='solid'&&anim==='flow')return flash(c,'Flow needs a gradient (2 or more colors)','bad');
   const id='l_'+name.toLowerCase().replace(/[^a-z0-9]/g,'');if(hasLim(id))return flash(c,'A limited color with that name already exists','bad');
   if(Object.keys(db.limcolors).length>=40)return flash(c,'Too many limited colors (max 40). Delete one first.','bad');
-  db.limcolors[id]={id,name,kind,anim,speed,stops:kind==='solid'?stops.slice(0,1):stops};save();pushLim();send(c,{t:'limmade',id,name});flash(c,'Limited color "'+name+'" created','ok')},
+  db.limcolors[id]={id,name,kind,anim,speed,price:Math.max(0,Math.min(1e7,Math.floor(+m.price)||0)),stops:kind==='solid'?stops.slice(0,1):stops};save();pushLim();send(c,{t:'limmade',id,name});flash(c,'Limited color "'+name+'" created','ok')},
+ limprice(c,m){if(!c.u?.owner||!c.acct)return;const id=String(m.id||'');if(!hasLim(id)||id===THX_ID)return;const p=Math.max(0,Math.min(1e7,Math.floor(+m.price)||0));db.limcolors[id].price=p;save();pushLim();for(const x of online.values())send(x,shopMsg());flash(c,p?db.limcolors[id].name+' is now in the shop for '+p.toLocaleString('en-US')+' XP':db.limcolors[id].name+' removed from the shop','ok')},
  limdel(c,m){if(!c.u?.owner||!c.acct)return;const id=String(m.id||'');if(!hasLim(id))return;delete db.limcolors[id];
   for(const u of Object.values(db.users)){if(u.lim)u.lim=u.lim.filter(x=>x!==id);if(u.color===id)u.color='white'}
   for(const r of db.raffles)if(!r.done&&r.reward.color===id)r.reward.color='';
@@ -401,10 +401,8 @@ const handlers={
  ptype(c,m){const p=c.party;if(!p||p.state!=='playing'||!p.m[p.turn]||p.m[p.turn].c!==c)return;const txt=filter.clean(String(m.text||'').slice(0,24));for(const x of p.m)if(!x.left&&x.c!==c)send(x.c,{t:'ptyping',text:txt})},
  color(c,m){const k=COLORS.find(x=>x[0]==m.color),own=c.u.owner;if((k&&(own||c.u.xp>=k[1]))||(own&&m.color=='ownerrainbow')||ownsLim(c.u,m.color)){c.u.color=m.color;if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()}},
  shopget(c){send(c,shopMsg())},
- buylim(c,m){const u=c.u;if(!u)return;if(m.id!==THX_ID||!thxOn())return flash(c,'That item is no longer available','bad');if(ownsLim(u,THX_ID))return flash(c,'You already own it','bad');if(u.bal<THX_PRICE)return flash(c,'You need '+THX_PRICE.toLocaleString('en-US')+' XP to buy this','bad');u.bal-=THX_PRICE;u.lim=u.lim||[];u.lim.push(THX_ID);if(c.acct)save();send(c,{t:'me',me:me(c)});send(c,shopMsg());flash(c,'You got Harvest Feast! Pick it from your color menu 🦃','ok')},
+ buylim(c,m){const u=c.u;if(!u)return;const id=String(m.id||''),d=hasLim(id)&&db.limcolors[id],isT=id===THX_ID,price=isT?THX_PRICE:(d&&d.price>0?d.price:0);if(!d||!price||(isT&&!thxOn()))return flash(c,'That item is no longer available','bad');if(ownsLim(u,id))return flash(c,'You already own it','bad');if(u.bal<price)return flash(c,'You need '+price.toLocaleString('en-US')+' XP to buy this','bad');u.bal-=price;u.lim=u.lim||[];u.lim.push(id);if(c.acct)save();send(c,{t:'me',me:me(c)});send(c,shopMsg());flash(c,'You got '+d.name+'! Pick it from your color menu','ok')},
  buytheme(c,m){const u=c.u;if(!u||m.id!=='rainbow')return;if(u.owner||(u.themes||[]).includes('rainbow'))return flash(c,'You already own it','bad');if(u.bal<RB_PRICE)return flash(c,'You need '+RB_PRICE.toLocaleString('en-US')+' XP to buy this','bad');u.bal-=RB_PRICE;u.themes=u.themes||[];u.themes.push('rainbow');if(c.acct)save();send(c,{t:'me',me:me(c)});flash(c,'Rainbow theme unlocked! Pick it in Themes 🌈','ok')},
- buynp(c,m){const u=c.u,d=u&&NPLATES[m.id];if(!d)return;if(u.owner||(u.nps||[]).includes(m.id))return flash(c,'You already own it','bad');if(u.bal<d.p)return flash(c,'You need '+d.p.toLocaleString('en-US')+' XP to buy this','bad');u.bal-=d.p;u.nps=u.nps||[];u.nps.push(m.id);u.np=m.id;if(c.acct)save();send(c,{t:'me',me:me(c)});flash(c,d.n+' nameplate bought and equipped','ok');lobby()},
- npset(c,m){const u=c.u;if(!u)return;const id=String(m.id||'');if(id&&!(NPLATES[id]&&(u.owner||(u.nps||[]).includes(id))))return;u.np=id;if(c.acct)save();send(c,{t:'me',me:me(c)});lobby()},
  buy(c,m){const p=SHOP[m.mult];if(p&&c.u.bal>=p&&c.u.mult<+m.mult){c.u.bal-=p;c.u.mult=+m.mult;if(c.acct)save();send(c,{t:'me',me:me(c)})}},
  announce(c,m){if(!canAnn(c))return;const t=String(m.text||'').trim().slice(0,140);if(!t||Date.now()-(c.lastAnn||0)<3000)return;c.lastAnn=Date.now();for(const x of online.values())send(x,{t:'announce',text:t,from:dn(c.u)})},
  warn(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!t.c||!canHit(c,t.u))return;const x=String(m.text||'').trim().slice(0,100)||'Please follow the rules.';t.u.warns=(t.u.warns||0)+1;if(t.c.acct)save();send(t.c,{t:'warned',text:x,count:t.u.warns,by:dn(c.u)})},
