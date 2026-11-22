@@ -117,6 +117,11 @@ html.bh-hide body>*:not(#bhlayer):not(#bhdim):not(#bhblock):not(#coins):not(#tel
 .thx .lf{position:absolute;top:-20px;font-style:normal;pointer-events:none;animation:thxlf 5s linear infinite}@keyframes thxlf{to{transform:translate(var(--dx,20px),230px) rotate(360deg);opacity:.2}}
 .thsw.rb{background:linear-gradient(90deg,#f43f5e,#f59e0b,#84cc16,#06b6d4,#8b5cf6,#f43f5e);background-size:300% 100%;animation:limflow 4s linear infinite}
 .shi{border-bottom:1px solid #e5e7eb;padding:8px 0}
+
+.rbw{--rbs:linear-gradient(90deg,#e11d48,#d97706,#16a34a,#0891b2,#4f46e5,#9333ea,#e11d48);--rbp:linear-gradient(90deg,#fecdd3,#fde68a,#bbf7d0,#a5f3fc,#c7d2fe,#e9d5ff,#fecdd3)}
+.rbw body{background:var(--rbp) fixed;background-size:200% 100%;animation:rbflow 12s linear infinite}
+.rbw header,.rbw button:not(.no),.rbw #bar{background:var(--rbs) fixed;background-size:200% 100%;animation:rbflow 12s linear infinite}
+@keyframes rbflow{from{background-position:200% 0}to{background-position:0 0}}
 </style></head><body>
 <header><b>ConnectChain</b>
 <div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
@@ -578,11 +583,10 @@ function doScare(n){const d=scareData||localStorage.scareImg,cur=lastList.find(x
 function doLogout(){const mm=$('menu');mm.style.display='block';mm.innerHTML=`<h3 style="margin:0 0 10px">🚪 Log out?</h3><p style="font-size:22px">Are you sure you want to log out?${live?'<br><small class="bad">You are in a battle. Logging out will forfeit it.</small>':''}</p><div style="display:flex;gap:10px"><button class="no" style="flex:1" onclick="confirmLogout()">Yes, log out</button><button style="flex:1" onclick="closeMenu()">Cancel</button></div>`}
 function confirmLogout(){closeMenu();send({t:'signout',tk:localStorage.cctk})}
 const THEMES=[['purple','Purple','#e4d4fb','#7c3aed','#6d28d9','#8b5cf6','#ede9fe','#f5f3ff','#ddd6fe','#2e1065'],['pink','Pink','#fbcfe8','#db2777','#be185d','#ec4899','#fce7f3','#fdf2f8','#fbcfe8','#500724'],['red','Red','#fecaca','#dc2626','#b91c1c','#e11d48','#fee2e2','#fef2f2','#fecaca','#450a0a'],['blue','Blue','#bfdbfe','#2563eb','#1d4ed8','#3b82f6','#dbeafe','#eff6ff','#bfdbfe','#172554'],['green','Green (original)','#b7f5c3','#16a34a','#15803d','#22c55e','#dcfce7','#f0fdf4','#bbf7d0','#14301c'],['yellow','Yellow','#fef08a','#ca8a04','#a16207','#eab308','#fef9c3','#fefce8','#fde68a','#422006'],['orange','Orange','#fed7aa','#ea580c','#c2410c','#f97316','#ffedd5','#fff7ed','#fed7aa','#431407'],['black','Black','#d1d5db','#111827','#1f2937','#374151','#e5e7eb','#f3f4f6','#d1d5db','#111827']];
-let rbT=0,rbH=0;const rbOwn=()=>!!(you&&(you.owner||(you.themes||[]).includes('rainbow')));
-function rbTick(){rbH=(rbH+3)%360;const r=document.documentElement.style,h=rbH,c=(s,l)=>`hsl(${h},${s}%,${l}%)`;[['bg',80,90],['t1',70,45],['t2',70,36],['t3',75,58],['t4',85,92],['t5',90,96],['t6',80,88],['tx',60,15]].forEach(x=>r.setProperty('--'+x[0],c(x[1],x[2])))}
-function setTheme(k,save){if(k=='rainbow'&&rbOwn()){if(!rbT){rbTick();rbT=setInterval(rbTick,120)}if(save)try{localStorage.cctheme='rainbow'}catch(e){}return}
- if(rbT){clearInterval(rbT);rbT=0}if(k=='rainbow')k='green';const t=THEMES.find(x=>x[0]==k)||THEMES[4],r=document.documentElement.style;['bg','t1','t2','t3','t4','t5','t6','tx'].forEach((v,i)=>r.setProperty('--'+v,t[i+2]));if(save)try{localStorage.cctheme=t[0]}catch(e){}}
-function themeSync(){try{const k=localStorage.cctheme;if(k=='rainbow'){if(rbOwn()){if(!rbT)setTheme('rainbow')}else{localStorage.cctheme='green';setTheme('green')}}}catch(e){}}
+const rbOwn=()=>!!(you&&(you.owner||(you.themes||[]).includes('rainbow')));
+function setTheme(k,save){const H=document.documentElement,r=H.style;if(k=='rainbow'&&rbOwn()){H.classList.add('rbw');[['bg','#e9d5ff'],['t1','#6366f1'],['t2','#4f46e5'],['t3','#a855f7'],['t4','#e0e7ff'],['t5','#f5f3ff'],['t6','#ddd6fe'],['tx','#1e1b4b']].forEach(x=>r.setProperty('--'+x[0],x[1]));if(save)try{localStorage.cctheme='rainbow'}catch(e){}return}
+ H.classList.remove('rbw');if(k=='rainbow')k='green';const t=THEMES.find(x=>x[0]==k)||THEMES[4];['bg','t1','t2','t3','t4','t5','t6','tx'].forEach((v,i)=>r.setProperty('--'+v,t[i+2]));if(save)try{localStorage.cctheme=t[0]}catch(e){}}
+function themeSync(){try{const k=localStorage.cctheme;if(k=='rainbow'){if(rbOwn()){setTheme('rainbow')}else{localStorage.cctheme='green';setTheme('green')}}}catch(e){}}
 try{setTheme(localStorage.cctheme)}catch(e){}
 function openThemes(){const mm=$('menu');mm.style.display='block';let cur='green';try{cur=localStorage.cctheme||'green'}catch(e){}
  mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🌈 Themes</h3><small>Pick your own look. Only you see it.</small><div style="margin-top:8px">${THEMES.map(t=>`<div class="thsw${t[0]==cur?' on':''}" style="background:${t[3]}" onclick="setTheme('${t[0]}',1);openThemes()">${t[0]==cur?'✔ ':''}${t[1]}</div>`).join('')}${rbOwn()?`<div class="thsw rb${cur=='rainbow'?' on':''}" onclick="setTheme('rainbow',1);openThemes()">${cur=='rainbow'?'✔ ':''}🌈 Rainbow</div>`:`<div class="thsw rb" style="filter:grayscale(.8)" onclick="event.stopPropagation();openShop()">🔒 Rainbow — 4,000 XP (Item Shop)</div>`}</div>`}
