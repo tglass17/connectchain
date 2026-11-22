@@ -35,17 +35,17 @@ const SYS='You judge a word-association game. Answer only YES or NO. YES if the 
 async function ai(a,b){const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':KEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:5,system:SYS,messages:[{role:'user',content:'First word: '+a+'\nSecond word: '+b}]})});
  const j=await r.json(),t=j.content&&j.content[0]&&j.content[0].text;if(!t)throw new Error('no answer');return /^\s*yes/i.test(t)}
 async function rel(a,b){if(KEY){const k=a+'|'+b;if(aiCache.has(k))return aiCache.get(k);try{const v=await ai(a,b);aiCache.set(k,v);return v}catch(e){console.log('AI check failed, using word list',e.message)}}return relOld(a,b)}
-function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,t0:Date.now(),spec:new Set()};[a,b].forEach(x=>{if(x.watch){x.watch.spec.delete(x);x.watch=null}});a.bt=b.bt=bt;
+function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,t0:Date.now(),hist:[],spec:new Set()};[a,b].forEach(x=>{if(x.watch){x.watch.spec.delete(x);x.watch=null}});a.bt=b.bt=bt;
  bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
  setTimeout(()=>{if(a.bt===bt){bt.live=true;reset(bt,Math.round(Math.random()))}},4200)}
-function reset(bt,turn){bt.chain=[WORDS[Math.random()*WORDS.length|0]];bt.turn=turn;push(bt)}
+function reset(bt,turn){bt.chain=[WORDS[Math.random()*WORDS.length|0]];bt.turn=turn;bt.hist.push({k:'r',w:bt.chain[0]});push(bt)}
 const BTIDLE=+process.env.BT_IDLE_MS||60000;
 function idleWatch(bt){clearTimeout(bt.itm);clearTimeout(bt.iwarn);if(!bt.live)return;const cur=bt.p[bt.turn];if(!cur)return;
  bt.iwarn=setTimeout(()=>{if(cur.bt===bt&&bt.p[bt.turn]===cur)flash(cur,'⏳ Make a move or you will be kicked for inactivity!','warn')},Math.round(BTIDLE*.6));
  bt.itm=setTimeout(()=>{if(cur.bt!==bt||bt.p[bt.turn]!==cur)return;bt.why='inactive';const o=bt.p[1-bt.p.indexOf(cur)];flash(cur,'You were kicked for being inactive.','bad');if(o)flash(o,dn(cur.u)+' was inactive and got kicked. You win!');end(cur,false)},BTIDLE)}
 function push(bt){idleWatch(bt);bt.p.forEach((c,i)=>send(c,{t:'battle',opp:pub(bt.p[1-i].u),chain:bt.chain,lives:bt.lives,you:i,turn:bt.turn}));bt.spec.forEach(s=>send(s,specState(bt)))}
 function end(c,won){const bt=c.bt;if(!bt)return;clearTimeout(bt.itm);clearTimeout(bt.iwarn);const i=bt.p.indexOf(c),o=bt.p[1-i];bt.p.forEach(x=>{x.bt=null});
- const w=won?c:o;{const secs=Math.round((Date.now()-(bt.t0||Date.now()))/1000);for(const x of bt.p)if(x.u){const op=x===c?o:c;logGame(x.u,{k:'battle',res:x===w?'win':'loss',opp:op&&op.u?dn(op.u):'?',words:bt.chain.length,secs,xp:x===w&&!x.u.owner?Math.round(100*x.u.mult):0,why:bt.why||''})}}bt.spec.forEach(s=>{s.watch=null;send(s,{t:'specover',winner:w.u?dn(w.u):'?'})});bt.spec.clear();if(w.u){addXp(w,Math.round(100*w.u.mult));qProg(w,'win');send(w,{t:'over',win:true});send(w===c?o:c,{t:'over',win:false})}lobby()}
+ const w=won?c:o;{const secs=Math.round((Date.now()-(bt.t0||Date.now()))/1000);for(const x of bt.p)if(x.u){const op=x===c?o:c;logGame(x.u,{k:'battle',res:x===w?'win':'loss',opp:op&&op.u?dn(op.u):'?',words:bt.chain.length,secs,xp:x===w&&!x.u.owner?Math.round(100*x.u.mult):0,why:bt.why||'',hist:bt.hist,names:bt.p.map(q=>q.u?dn(q.u):'?'),me:bt.p.indexOf(x)})}}bt.spec.forEach(s=>{s.watch=null;send(s,{t:'specover',winner:w.u?dn(w.u):'?'})});bt.spec.clear();if(w.u){addXp(w,Math.round(100*w.u.mult));qProg(w,'win');send(w,{t:'over',win:true});send(w===c?o:c,{t:'over',win:false})}lobby()}
 function strike(c){c.strikes=(c.strikes||0)+1;if(c.strikes>=3){bans[c.ip]=Date.now()+6e5;send(c,{t:'banned'});c.ws.close()}
  else flash(c,c.strikes==2?'⚠ FINAL WARNING: keep it up and you will be banned.':'⚠ Warning: that word is not allowed.','warn')}
 async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt.busy)return;
@@ -53,8 +53,8 @@ async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt
  if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
  bt.busy=true;const ok=!bt.chain.includes(w)&&await rel(bt.chain.at(-1),w);bt.busy=false;if(!c.bt)return;
  const i=bt.p.indexOf(c);
- if(ok){bt.chain.push(w);bt.turn=1-i;addXp(c,Math.round(10*c.u.mult));push(bt);return}
- flash(c,'That is unrelated!','bad');bt.spec.forEach(s=>send(s,{t:'specmsg',text:dn(c.u)+' said "'+w+'" - unrelated!'}));bt.lives[i]--;
+ if(ok){bt.hist.push({k:'w',w,by:i});bt.chain.push(w);bt.turn=1-i;addXp(c,Math.round(10*c.u.mult));push(bt);return}
+ flash(c,'That is unrelated!','bad');bt.spec.forEach(s=>send(s,{t:'specmsg',text:dn(c.u)+' said "'+w+'" - unrelated!'}));bt.lives[i]--;bt.hist.push({k:'x',w,by:i,lives:bt.lives[i]});
  if(bt.lives[i]<=0)return end(bt.p[1-i],true);reset(bt,1-i)}
 const find=n=>online.get(String(n).toLowerCase());
 function target(n){const c=find(n);if(c)return{c,u:c.u};const u=Object.values(db.users).find(x=>x.name.toLowerCase()==String(n).toLowerCase());return u&&{u}}
@@ -103,7 +103,8 @@ function endPoll(){if(!poll||poll.done)return;poll.done=true;clearTimeout(pollT)
 const ENDCAP=500,ENDWORD=5,ENDBONUS=5,startWord=()=>WORDS[Math.random()*WORDS.length|0];
 const esend=(c,msg)=>{const e=c.end;send(c,{t:'end',chain:e.chain,words:e.words,streak:e.streak,turn:e.turn,msg})};
 const addEnd=(e,n)=>{e.xp=Math.min(ENDCAP,e.xp+n)};
-function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);if(e.words>0||amt>0)logGame(c.u,{k:'endless',words:e.words,best:e.best,xp:amt});
+function eh(e,ev){e.hist=e.hist||[];if(!e.hist.length)e.hist.push({k:'r',w:e.chain[0]});if(e.hist.length<400)e.hist.push(ev)}
+function finishEnd(c,notify){const e=c.end;if(!e)return;c.end=null;const amt=Math.round(e.xp*c.u.mult);if(amt>0)addXp(c,amt);if(e.words>0||amt>0)logGame(c.u,{k:'endless',words:e.words,best:e.best,xp:amt,hist:e.hist||[]});
  if(notify)send(c,{t:'endover',words:e.words,best:e.best,xp:amt,mult:c.u.mult,capped:e.xp>=ENDCAP});lobby()}
 const STOP=new Set('the and has have had was were are been being not but for with from that this these those you your they them their its his her our out about into over than then just also very too more most some any all each every other such only own same what which who whom when where why how there here can will would should could may might must does did get got let say said'.split(' '));
 const dmn=async(q,max)=>{const k='n|'+q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?md=p&max='+max+'&'+q);const j=(await r.json()).filter(x=>x.tags&&x.tags.some(t=>t=='n')).map(x=>x.word);cache.set(k,j);return j}catch{return[]}};
@@ -115,8 +116,8 @@ async function botMove(c){const e=c.end;if(!e)return;const last=e.chain.at(-1);l
  for(const w of strong){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
  if(!pick&&KEY)for(const w of pool.filter(x=>!strong.includes(x)).slice(0,3)){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
  if(c.end!==e)return;
- if(!pick){qProg(c,'stump');addEnd(e,ENDBONUS);e.chain=[startWord()];e.streak=0;e.turn='you';return esend(c,'🤖 The bot is stumped and could not find a word! +'+ENDBONUS+' bonus XP. New word!')}
- e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
+ if(!pick){qProg(c,'stump');addEnd(e,ENDBONUS);eh(e,{k:'s'});e.chain=[startWord()];e.hist.push({k:'r',w:e.chain[0]});e.streak=0;e.turn='you';return esend(c,'🤖 The bot is stumped and could not find a word! +'+ENDBONUS+' bonus XP. New word!')}
+ eh(e,{k:'w',w:pick,by:'bot'});e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
 const fuser=n=>db.users[acctName(n)||''];
 const hasF=(u,n)=>(u.friends||[]).some(x=>lc(x)==lc(n));
 const friendView=u=>{const v=n=>({name:n,dn:dn(db.users[n]||{name:n})});return{friends:(u.friends||[]).map(v),inc:(u.fin||[]).map(v),out:(u.fout||[]).slice()}};
@@ -155,7 +156,7 @@ function qProg(c,type,n){if(!c||!c.acct||!c.u||c.u.owner||!db.quests.length)retu
 const qCnt=(id)=>Object.keys(((db.qlog||{})[ymd()]||{})[id]||{}).length;
 function qLogDone(u,q){db.qlog=db.qlog||{};const day=ymd(),L=db.qlog[day]=db.qlog[day]||{},m=L[q.id]=L[q.id]||{};if(!m[u.name])m[u.name]={at:Date.now()};const ks=Object.keys(db.qlog).sort();while(ks.length>14)delete db.qlog[ks.shift()]}
 function qXp(u){if(!db.quests||!db.quests.length||u.owner)return;for(const q of db.quests){if(!q.on||q.type!=='xp')continue;const m=((db.qlog||{})[ymd()]||{})[q.id];if(m&&m[u.name])continue;if(roll(u).dx>=q.target){qLogDone(u,q);const c=find(u.name);if(c&&c.u===u){flash(c,'📜 Quest complete: '+qTitle(q)+' — claim your reward!','ok');qSend(c)}}}}
-function logGame(u,e){if(!u)return;u.log=u.log||[];u.log.unshift({at:Date.now(),...e});if(u.log.length>100)u.log.length=100;if(db.users[u.name]===u)save()}
+function logGame(u,e){if(!u)return;if(e.hist&&e.hist.length>150)e.hist=e.hist.slice(-150);u.log=u.log||[];u.log.unshift({at:Date.now(),...e});if(u.log.length>100)u.log.length=100;for(let i=25;i<u.log.length;i++)delete u.log[i].hist;if(db.users[u.name]===u)save()}
 const pushQuests=()=>{for(const x of online.values())if(x.u){x.qAt=0;send(x,qView(x))}};
 /* ---- clans ---- */
 const CLANMAX=5,clanKey=n=>lc(n),RESERVED=/^(owner|admin|mod|staff|system)$/i;
@@ -213,20 +214,20 @@ function ptDelete(p){clearTimeout(p.tm);p.tok++;parties.delete(p.id);ptSendList(
 const ptNext=(p,i)=>{const n=p.m.length;for(let k=1;k<=n;k++){const j=(i+k)%n;if(!p.m[j].out)return j}return i};
 function ptTimer(p){clearTimeout(p.tm);const tok=++p.tok;p.deadline=Date.now()+PTURN;
  p.tm=setTimeout(()=>{if(p.state!=='playing'||p.tok!==tok)return;const cur=p.m[p.turn];if(cur)ptLose(p,cur,dn(cur.u)+' ran out of time!')},PTURN)}
-function ptStartGame(p){p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=!!x.spec});p.chain=[startWord()];{const al=p.m.map((x,i)=>i).filter(i=>!p.m[i].out);p.turn=al[Math.random()*al.length|0]}ptTimer(p);ptPush(p);ptSendList();lobby()}
+function ptStartGame(p){p.state='playing';p.result=null;p.msg='';p.m.forEach(x=>{x.lives=PLIVES;x.out=!!x.spec});p.chain=[startWord()];p.hist=[{k:'r',w:p.chain[0]}];{const al=p.m.map((x,i)=>i).filter(i=>!p.m[i].out);p.turn=al[Math.random()*al.length|0]}ptTimer(p);ptPush(p);ptSendList();lobby()}
 function ptFinish(p,w){clearTimeout(p.tm);p.tok++;p.state='lobby';let xp=0;
  let rw=null;
  if(w&&!w.left&&w.c.u&&!w.spec){qProg(w.c,'mpwin');if(p.reward){rw=p.reward;giveReward(w.u.name,rw)}else{xp=Math.round(100*w.u.mult);addXp(w.c,xp)}}
  if(p.mega)p.done=true;
- {const pl=p.m.filter(x=>!x.spec&&x.u);for(const x of pl)logGame(x.u,{k:'party',mega:!!p.mega,name:p.name||'',res:x===w?'win':w?'loss':'draw',players:pl.length,xp:x===w?xp:0,rw:x===w&&rw?rwText(rw):''})}
+ {const pl=p.m.filter(x=>!x.spec&&x.u);for(const x of pl)logGame(x.u,{k:'party',mega:!!p.mega,name:p.name||'',res:x===w?'win':w?'loss':'draw',players:pl.length,xp:x===w?xp:0,rw:x===w&&rw?rwText(rw):'',hist:p.hist||[],names:pl.map(q=>dn(q.u)),me:dn(x.u)})}
  p.result={winner:w?dn(w.u):null,name:w?w.u.name:'',xp:w&&!w.u.owner?xp:0,reward:rw,msg:p.msg||''};
  if(rw&&w)for(const y of online.values())send(y,{t:'announce',text:'🏆 '+dn(w.u)+' won the Mega Lobby and got '+rwText(rw)+'!',from:'Mega Lobby'});
  p.m=p.m.filter(x=>!x.left);if(!p.m.length)return ptDelete(p);
  if(!p.m.includes(p.host))p.host=p.m[0];
  p.chain=[];ptPush(p);ptSendList();lobby()}
-function ptLose(p,cur,msg){cur.lives--;if(cur.lives<=0)cur.out=true;p.msg=msg+(cur.out?' ☠ Eliminated!':'');
+function ptLose(p,cur,msg){cur.lives--;if(cur.lives<=0)cur.out=true;p.hist.push({k:'x',by:dn(cur.u),msg,lives:cur.lives,out:!!cur.out});p.msg=msg+(cur.out?' ☠ Eliminated!':'');
  const live=p.m.filter(x=>!x.out);if(live.length<=1)return ptFinish(p,live[0]||null);
- p.chain=[startWord()];p.turn=ptNext(p,p.turn);ptTimer(p);ptPush(p)}
+ p.chain=[startWord()];p.hist.push({k:'r',w:p.chain[0]});p.turn=ptNext(p,p.turn);ptTimer(p);ptPush(p)}
 function ptLeave(c){const p=c.party;if(!p)return;c.party=null;const i=p.m.findIndex(x=>x.c===c);if(i<0)return;const x=p.m[i];
  if(p.state==='playing'){x.left=true;x.out=true;
   if(!p.m.some(y=>!y.left))return ptDelete(p);
@@ -242,7 +243,7 @@ async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;c
  if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
  const tok=p.tok;cur.busy=true;let ok=false;try{ok=!p.chain.includes(w)&&await rel(p.chain.at(-1),w)}finally{cur.busy=false}
  if(p.state!=='playing'||p.tok!==tok||p.m[p.turn]!==cur||c.party!==p)return;
- if(ok){p.chain.push(w);p.msg='';addXp(c,Math.round(10*c.u.mult));p.turn=ptNext(p,p.turn);ptTimer(p);return ptPush(p)}
+ if(ok){p.hist.push({k:'w',w,by:dn(cur.u)});p.chain.push(w);p.msg='';addXp(c,Math.round(10*c.u.mult));p.turn=ptNext(p,p.turn);ptTimer(p);return ptPush(p)}
  flash(c,'That is unrelated!','bad');ptLose(p,cur,dn(cur.u)+' said "'+w+'" - unrelated!')}
 // ===== Limited colors, rewards, Mega Lobby helpers, Raffles =====
 const LIMSEED=[
@@ -518,8 +519,8 @@ const handlers={
   if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
   if(e.xp>=ENDCAP)return flash(c,'You hit the XP cap for this run. Press Stop to collect!','warn');
   e.busy=true;const ok=!e.chain.includes(w)&&await rel(e.chain.at(-1),w);e.busy=false;if(c.end!==e)return;
-  if(!ok){flash(c,'That is unrelated!','bad');e.chain=[startWord()];e.streak=0;return esend(c,'Oops, that did not connect. New word!')}
-  e.chain.push(w);e.words++;e.streak++;e.best=Math.max(e.best,e.streak);addEnd(e,ENDWORD);e.turn='bot';esend(c,'✅ Nice one!');setTimeout(()=>botMove(c),1000+Math.random()*1500)},
+  if(!ok){flash(c,'That is unrelated!','bad');eh(e,{k:'x',w,by:'you'});e.chain=[startWord()];e.hist.push({k:'r',w:e.chain[0]});e.streak=0;return esend(c,'Oops, that did not connect. New word!')}
+  eh(e,{k:'w',w,by:'you'});e.chain.push(w);e.words++;e.streak++;e.best=Math.max(e.best,e.streak);addEnd(e,ENDWORD);e.turn='bot';esend(c,'✅ Nice one!');setTimeout(()=>botMove(c),1000+Math.random()*1500)},
  endstop(c){finishEnd(c,true)},
  rooms(c){if(c.acct)pushRooms([c.u.name])},
  roomnew(c,m){if(!c.acct)return flash(c,'Sign up for an account to use chatrooms','bad');if(Date.now()-(c.lastRoom||0)<5000)return flash(c,'Slow down a little','warn');
