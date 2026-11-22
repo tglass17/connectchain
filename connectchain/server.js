@@ -13,8 +13,8 @@ const mk=(n,p)=>{const salt=crypto.randomBytes(8).toString('hex');return{name:n,
 function ensureOwner(){const pw=process.env.OWNER_PASSWORD;if(!pw)return;if(!db.users[OWNER]){db.users[OWNER]=mk(OWNER,pw);db.users[OWNER].tag='OWNER'}else db.users[OWNER].hash=hash(pw,db.users[OWNER].salt);save()}
 const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],['blueg',600],['orange',700],['redorangeg',800],['greenhaze',1200],['rainbow',3000],['purplehaze',7000]];
 const SHOP={'1.5':500,'2':1000};
-const THX_ID='l_harvestfeast',THX_PRICE=8000,RB_PRICE=4000,THX_DAYS=7;
-const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train','tree','build'];
+const THX_ID='l_harvestfeast',THX_PRICE=6000,RB_PRICE=4000,THX_DAYS=7;
+const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0,qm:!!u.qmod}};
@@ -254,7 +254,8 @@ const LIMSEED=[
  {id:'l_silverhaze',name:'Silver Haze',kind:'gradient',anim:'shine',speed:1,stops:['#4b5563','#9ca3af']}];
 const LIMANIM=['none','flow','shine','pulse','flicker','hue'];
 function limNorm(d){if(d.kind==='animated'){d.kind='gradient';d.anim='flow'}else if(d.kind==='shine'){d.kind='gradient';d.anim='shine'}if(!LIMANIM.includes(d.anim))d.anim='none';d.speed=Math.min(4,Math.max(.4,+d.speed||1))}
-function limSeed(){db.limcolors=db.limcolors||{};if(!db.limSeeded){for(const d of LIMSEED)if(!db.limcolors[d.id])db.limcolors[d.id]=d;db.limSeeded=true}if(!db.thxSeeded){if(!db.limcolors[THX_ID])db.limcolors[THX_ID]={id:THX_ID,name:'Harvest Feast',kind:'gradient',anim:'flow',speed:1,fx:'leaves',stops:['#5c3317','#c0392b','#fff5e1','#e67e22','#7b3f00']};db.thx={end:Date.now()+THX_DAYS*864e5};db.thxSeeded=true;save()}
+function limSeed(){db.limcolors=db.limcolors||{};if(!db.limSeeded){for(const d of LIMSEED)if(!db.limcolors[d.id])db.limcolors[d.id]=d;db.limSeeded=true}if(db.limcolors[THX_ID]&&!db.limcolors[THX_ID].glow)db.limcolors[THX_ID].glow='#f97316';
+ if(!db.thxSeeded){if(!db.limcolors[THX_ID])db.limcolors[THX_ID]={id:THX_ID,name:'Harvest Feast',kind:'gradient',anim:'flow',speed:1,fx:'leaves',glow:'#f97316',stops:['#5c3317','#c0392b','#fff5e1','#e67e22','#7b3f00']};db.thx={end:Date.now()+THX_DAYS*864e5};db.thxSeeded=true;save()}
  Object.values(db.limcolors).forEach(limNorm)}
 const hasLim=id=>typeof id==='string'&&Object.prototype.hasOwnProperty.call(db.limcolors,id);
 const ownsLim=(u,id)=>hasLim(id)&&!!(u.owner||(u.lim||[]).includes(id));
