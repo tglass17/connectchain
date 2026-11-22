@@ -15,8 +15,8 @@ const COLORS=[['white',0],['blue',200],['red',300],['yellow',400],['green',500],
 const SHOP={'1.5':500,'2':1000};
 const canPay=(u,p)=>u.bal>=p&&u.xp>=p;
 function spend(u,p){u.xp-=p;u.bal-=p;gain(u,-p);{const k=COLORS.find(x=>x[0]==u.color);if(k&&!u.owner&&u.xp<k[1])u.color='white'}}
-const THX_ID='l_harvestfeast',THX_PRICE=8000,RB_PRICE=4000,THX_DAYS=7;
-const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train','tree','build'];
+const THX_ID='l_harvestfeast',THX_PRICE=6000,RB_PRICE=4000,THX_DAYS=7;
+const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train'];
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0,qm:!!u.qmod}};
@@ -594,6 +594,7 @@ const handlers={
  lbfind(c,m){if(Date.now()-(c.lbfAt||0)<400)return;c.lbfAt=Date.now();const q=String(m.q||'').trim().slice(0,16).toLowerCase();if(!q)return send(c,{t:'lbfind',q:'',exact:null,matches:[]});
   const us=Object.values(db.users),ex=us.find(x=>x.name.toLowerCase()==q||String(x.display||'').toLowerCase()==q),ms=us.filter(x=>x!==ex&&(x.name.toLowerCase().includes(q)||String(x.display||'').toLowerCase().includes(q))).slice(0,8).map(pub);
   send(c,{t:'lbfind',q,exact:ex?{...pub(ex),ranks:rankOf(ex)}:null,matches:ms})},
+ syncbal(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;t.u.bal=Math.max(0,t.u.xp);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});flash(c,t.u.name+"'s balance set to "+t.u.xp.toLocaleString('en-US')+' XP','ok')},
  grant(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t)return;const n=Math.max(-1e6,Math.min(1e6,+m.xp|0));t.u.xp=Math.max(0,t.u.xp+n);gain(t.u,n);{const k=COLORS.find(x=>x[0]==t.u.color);if(k&&!t.u.owner&&t.u.xp<k[1])t.u.color='white'}t.u.bal=Math.max(0,t.u.bal+n);save();if(t.c)send(t.c,{t:'me',me:me(t.c)});lobby()},
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
