@@ -472,11 +472,28 @@ function logsRender(){const e=$('lgb2');if(!e||!logData)return;const L=logData.l
  const row=x=>{let h;if(x.k=='battle')h=`${x.res=='win'?'🏆':'💀'} <b>Battle</b> vs <b>${esc(x.opp)}</b> — ${x.res=='win'?'Won':'Lost'}${x.why?(x.res=='win'?' <small>(opponent '+(x.why=='forfeit'?'forfeited':'was kicked for inactivity')+')</small>':' <small>('+(x.why=='forfeit'?'you forfeited':'you were kicked for inactivity')+')</small>'):''}<br><small>${x.words} word${x.words==1?'':'s'} · ${Math.floor(x.secs/60)}:${String(x.secs%60).padStart(2,'0')}${x.xp?' · +'+x.xp+' XP':''}</small>`;
   else if(x.k=='endless')h=`♾️ <b>Endless</b> — ${x.words} word${x.words==1?'':'s'}<br><small>Best streak ${x.best}${x.xp?' · +'+x.xp+' XP':''}</small>`;
   else h=`${x.res=='win'?'🏆':x.res=='draw'?'🤝':'💀'} <b>${x.mega?'👑 Mega Lobby':'🎉 Multiplayer'}</b>${x.name?' "'+esc(x.name)+'"':''} — ${x.res=='win'?'Won':x.res=='draw'?'No winner':'Lost'}<br><small>${x.players} players${x.xp?' · +'+x.xp+' XP':''}${x.rw?' · '+esc(x.rw):''}</small>`;
-  return `<div style="border-bottom:1px solid #e5e7eb;padding:8px 2px"><div class="row" style="margin:0;align-items:flex-start"><span>${h}</span><small style="white-space:nowrap">${logTime(x.at)}</small></div></div>`};
+  const v=x.hist&&x.hist.length>1;return `<div ${v?`onclick="logView(${L.indexOf(x)})" `:''}style="border-bottom:1px solid #e5e7eb;padding:8px 2px;${v?'cursor:pointer':''}"><div class="row" style="margin:0;align-items:flex-start"><span>${h}</span><small style="white-space:nowrap">${logTime(x.at)}${v?'<br><b style="color:var(--t2)">👁 View</b>':''}</small></div></div>`};
  e.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 6px">🗒️ Game Logs</h3>${logData.acct?'':'<small>Guest logs disappear when you leave. Sign up to keep your history.</small>'}
  <div style="margin:6px 0">${[['all','All'],['battle','⚔️ Battles'],['endless','♾️ Endless'],['party','🎉 Multiplayer']].map(([k,l])=>`<button style="margin:2px;font-size:15px;padding:6px 10px;${k==logTab?'background:#3b82f6':''}" onclick="logTab='${k}';logsRender()">${l}</button>`).join('')}</div>
- ${b.length?`<div style="background:var(--t5);border-radius:12px;padding:8px;margin-bottom:6px">Battle record: <b>${w}W – ${b.length-w}L</b> <small>(your last 100 games are kept)</small></div>`:''}
+ ${b.length?`<div style="background:var(--t5);border-radius:12px;padding:8px;margin-bottom:6px">Battle record: <b>${w}W – ${b.length-w}L</b> <small>(last 100 games kept · tap a game with 👁 View to watch it back)</small></div>`:''}
  ${F.length?F.map(row).join(''):'<p><small>No games here yet. Go play some!</small></p>'}`}
+/* ---- view / replay a past game ---- */
+let lgTm=0;
+function lgEv(x,ev){const mine=ev.by===x.me||ev.by==='you',who=x.k=='endless'?(ev.by=='bot'?'🤖 Bot':'You'):x.k=='battle'?(mine?'You':esc(x.names[ev.by])):(mine?'You':esc(ev.by));
+ if(ev.k=='r')return `<div style="text-align:center;margin:10px 0 4px;color:#6b7280"><small>🔄 New round · start word</small><br><b style="font-size:20px">${esc(ev.w)}</b></div>`;
+ if(ev.k=='s')return `<div style="text-align:center;color:#16a34a;margin:6px 0"><b>🤖 The bot was stumped!</b></div>`;
+ if(ev.k=='w')return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin:4px 0"><div style="max-width:75%;background:${mine?'var(--t4)':'#e5e7eb'};border-radius:14px;padding:6px 12px"><small>${who}</small><br><b style="font-size:18px">${esc(ev.w)}</b></div></div>`;
+ if(ev.k=='x'){const t=x.k=='party'?esc(ev.msg||'')+(ev.out?'':' <small>('+ev.lives+' lives left)</small>'):`<b>${who}</b> said "${esc(ev.w)}" — that did not connect!${x.k=='battle'?' <small>('+ev.lives+' lives left)</small>':''}`;return `<div style="text-align:center;color:#dc2626;margin:6px 0">❌ ${t}</div>`}
+ return ''}
+function lgEnd(x){const r=x.res=='win'?'🏆 You won!':x.res=='draw'?'🤝 No winner':'💀 You lost';return `<div style="text-align:center;margin:12px 0 4px;padding:8px;border-radius:12px;background:var(--t5)"><b>${r}</b>${x.why?'<br><small>'+(x.why=='forfeit'?(x.res=='win'?'Opponent forfeited':'You forfeited'):(x.res=='win'?'Opponent was kicked for inactivity':'You were kicked for inactivity'))+'</small>':''}${x.xp?'<br><small>+'+x.xp+' XP</small>':''}</div>`}
+function logView(i){clearInterval(lgTm);const x=logData&&logData.list[i],e=$('lgb2');if(!x||!e)return;
+ const title=x.k=='battle'?'⚔️ Battle vs '+esc(x.opp):x.k=='endless'?'♾️ Endless run':(x.mega?'👑 Mega Lobby':'🎉 Multiplayer')+(x.name?' "'+esc(x.name)+'"':'');
+ const who=x.k=='battle'?esc(x.names.join(' vs ')):x.k=='party'?esc(x.names.join(', ')):'You vs 🤖 Bot';
+ e.innerHTML=`<button onclick="clearInterval(lgTm);logsRender()">‹ Back to logs</button><h3 style="margin:8px 0 2px">${title}</h3><small>${logTime(x.at)} · ${who}</small>
+ <div style="margin:8px 0"><button class="go" onclick="logPlay(${i})">▶ Replay</button> <button onclick="logAll(${i})">⏭ Show all</button></div><div id="lgev" style="max-height:52vh;overflow:auto;border-top:1px solid #e5e7eb;padding-top:4px"></div>`;logAll(i)}
+function logAll(i){clearInterval(lgTm);const x=logData.list[i],v=$('lgev');if(!v)return;v.innerHTML=x.hist.map(ev=>lgEv(x,ev)).join('')+lgEnd(x)}
+function logPlay(i){clearInterval(lgTm);const x=logData.list[i],v=$('lgev');if(!v)return;v.innerHTML='';let n=0;
+ lgTm=setInterval(()=>{const v=$('lgev');if(!v){clearInterval(lgTm);return}if(n>=x.hist.length){v.insertAdjacentHTML('beforeend',lgEnd(x));v.scrollTop=v.scrollHeight;clearInterval(lgTm);return}v.insertAdjacentHTML('beforeend',lgEv(x,x.hist[n++]));v.scrollTop=v.scrollHeight},650)}
 function qWho(id,day){qWhoD=null;const e=$('qb2');if(e)e.innerHTML='<p>Loading…</p>';send({t:'questwho',id,day})}
 function qWhoRender(){const e=$('qb2'),d=qWhoD;if(!e||!d)return;
  e.innerHTML=`<button onclick="qWhoD=null;qRender()">‹ Back</button><h3 style="margin:8px 0 2px">👥 Who did it?</h3><div><b>${esc(d.title)}</b></div>
