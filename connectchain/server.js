@@ -128,13 +128,14 @@ function pushFriends(names){for(const x of online.values())if(x.acct&&x.u&&names
 function makeFriends(a,b){for(const[u,o]of[[a,b],[b,a]]){u.friends=u.friends||[];if(!hasF(u,o.name))u.friends.push(o.name);u.fin=(u.fin||[]).filter(x=>lc(x)!=lc(o.name));u.fout=(u.fout||[]).filter(x=>lc(x)!=lc(o.name))}}
 const evLeft=u=>u.lev?Math.max(0,u.lev.limit-(u.evUsed&&u.evUsed.d===ymd()?u.evUsed.n:0)):0;
 const liveStatus=c=>({t:'liveev',on:!!c.u.lev,limit:c.u.lev?c.u.lev.limit:0,left:evLeft(c.u)});
-let evt=null,evtCool=0;const EV_START=4000,EV_DUR=15000,EV_COST=10000,BH_START=6800,BH_SPAN=3500,ST_START=1500,ST_SPAN=20500;
-function startEvent(by,kind){const bh=kind==='blackhole',st=kind==='stampede',startIn=bh?BH_START:st?ST_START:EV_START,span=bh?BH_SPAN:st?ST_SPAN:EV_DUR,coins=[];let t=0,id=0;
- while(t<span){const big=Math.random()<(st?0.4:0.08);coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:st?18+Math.random()*72:14+Math.random()*78,life:st?3000:bh?(big?6500:7500):(big?2800:3500)});t+=st?190+Math.random()*100:(bh?50:170)+Math.random()*(bh?40:90)}
+let evt=null,evtCool=0;const evPend=new Map();const EV_START=4000,EV_DUR=15000,EV_COST=10000,BH_START=6800,BH_SPAN=3500,ST_START=1500,ST_SPAN=20500,TK_START=10600,TK_SPAN=27000;
+function startEvent(by,kind){const bh=kind==='blackhole',st=kind==='stampede',tk=kind==='turkey',startIn=bh?BH_START:st?ST_START:tk?TK_START:EV_START,span=bh?BH_SPAN:st?ST_SPAN:tk?TK_SPAN:EV_DUR,coins=[];let t=0,id=0;
+ while(t<span){const big=Math.random()<(st?0.4:tk?0.22:0.08);coins.push({id:id++,t:Math.round(t),big,x:5+Math.random()*88,y:st?18+Math.random()*72:14+Math.random()*78,life:st?3000:tk?3200:bh?(big?6500:7500):(big?2800:3500)});t+=st?190+Math.random()*100:tk?230+Math.random()*120:(bh?50:170)+Math.random()*(bh?40:90)}
+ if(tk){for(let i=0;i<8;i++)coins.push({id:id++,t:Math.round(Math.max(400,(i+.5)*span/8+(Math.random()-.5)*1800)),big:false,inv:true,x:8+Math.random()*82,y:20+Math.random()*66,life:3000});for(let i=0;i<5;i++)coins.push({id:id++,t:Math.round(1500+(i+Math.random())*(span-3000)/5),big:true,mega:true,x:10+Math.random()*75,y:18+Math.random()*60,life:3400})}
  if(st)for(let i=0;i<6;i++)coins.push({id:id++,t:Math.round(Math.max(600,(i+.5)*span/6+(Math.random()-.5)*1400)),big:false,inv:true,x:8+Math.random()*82,y:20+Math.random()*66,life:2800});
- let nb=coins.filter(c=>c.big).length;while(nb<(st?24:4)){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=bh?6500:st?3000:2800;nb++}}
- const e=evt={id:Date.now(),coinsAt:Date.now()+startIn,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};const total=startIn+span+(bh?7500:st?3000:3500)+1000;evtCool=Date.now()+total+60000;
- const msg={t:'tevent',kind:bh?'blackhole':st?'stampede':'token',by:dn(by),id:e.id,startIn,coins};for(const x of online.values())send(x,msg);
+ let nb=coins.filter(c=>c.big).length;while(nb<(st?24:tk?0:4)){const c=coins[Math.random()*coins.length|0];if(!c.big){c.big=true;c.life=bh?6500:st?3000:2800;nb++}}
+ const e=evt={id:Date.now(),coinsAt:Date.now()+startIn,coins:new Map(coins.map(c=>[c.id,c])),claims:{}};const total=startIn+span+(bh?7500:st?3000:tk?3400:3500)+1000;evtCool=Date.now()+total+60000;
+ const msg={t:'tevent',kind:bh?'blackhole':st?'stampede':tk?'turkey':'token',by:dn(by),id:e.id,startIn,coins};for(const x of online.values())send(x,msg);
  setTimeout(()=>{if(evt===e)evt=null},total)}
 const RCATS=['player','name','chat','bug','other'];
 const reportList=c=>db.reports.slice(-100).filter(r=>c.u.owner||!r.tmod).map(r=>({id:r.id,by:r.by,byDn:r.byDn,target:r.target,tdn:r.tdn,cat:r.cat,text:r.text,ctx:r.ctx,at:r.at,status:r.status}));
@@ -492,17 +493,25 @@ const handlers={
  setliveev(c,m){if(!c.u?.owner||!c.acct)return;const u=fuser(m.to);if(!u||u.owner)return flash(c,'Only regular accounts can get live events','bad');
   if(m.on)u.lev={limit:Math.max(1,Math.min(50,Math.floor(+m.limit)||3))};else delete u.lev;save();
   const o=find(u.name);if(o&&o.acct){send(o,{t:'me',me:me(o)});send(o,liveStatus(o))}lobby();flash(c,m.on?'Live events granted ('+u.lev.limit+' per day)':'Live events revoked','ok')},
- spawnevent(c,m){if(!c.u||!c.acct)return;const kind=m.kind==='blackhole'?'blackhole':m.kind==='stampede'?'stampede':'token';
+ spawnevent(c,m){if(!c.u||!c.acct)return;const kind=m.kind==='blackhole'?'blackhole':m.kind==='stampede'?'stampede':m.kind==='turkey'?'turkey':'token';
   if(c.u.owner){if(evt)return flash(c,'An event is already running','warn');return startEvent(c.u,kind)}
   if(!c.u.lev)return;if(evLeft(c.u)<=0)return flash(c,'You used all '+c.u.lev.limit+' of your events today','warn');if(evt)return flash(c,'An event is already running. Try again in a moment.','warn');
+  if(kind==='turkey'){const k=lc(c.u.name),now=Date.now(),p=evPend.get(k);if(p&&now-p.at<30000)return flash(c,'Request already sent. Wait for the owner to answer.','warn');
+   const ow=[...online.values()].find(x=>x.u&&x.u.owner&&x.acct);if(!ow)return flash(c,'The owner must be online to approve a Turkey Event','warn');
+   const id=now+'-'+Math.random().toString(36).slice(2,7);evPend.set(k,{id,at:now,u:c.u});setTimeout(()=>{const q=evPend.get(k);if(q&&q.id===id){evPend.delete(k);const o=find(ow.u.name);if(o)send(o,{t:'evreqgone',id})}},60000);
+   send(ow,{t:'evreq',id,from:c.u.name,dn:dn(c.u),kind:'turkey'});return flash(c,'Request sent. Waiting for the owner to accept…','ok')}
   startEvent(c.u,kind);const d=ymd(),n=c.u.evUsed&&c.u.evUsed.d===d?c.u.evUsed.n:0;c.u.evUsed={d,n:n+1};save();send(c,liveStatus(c))},
+ evresp(c,m){if(!c.u?.owner||!c.acct)return;let k=null,p=null;for(const[a,b]of evPend)if(b.id===m.id){k=a;p=b}if(!p)return send(c,{t:'evreqgone',id:m.id});evPend.delete(k);send(c,{t:'evreqgone',id:m.id});
+  const r=[...online.values()].find(x=>x.u===p.u);if(!r)return;if(!m.ok)return flash(r,'The owner denied your Turkey Event','bad');
+  if(!p.u.lev||evLeft(p.u)<=0)return flash(r,'You have no events left today','warn');if(evt)return flash(r,'Approved, but another event is running. Ask again in a moment.','warn');
+  startEvent(p.u,'turkey');const d=ymd(),n=p.u.evUsed&&p.u.evUsed.d===d?p.u.evUsed.n:0;p.u.evUsed={d,n:n+1};save();send(r,liveStatus(r));flash(r,'The owner approved your Turkey Event! 🦃','ok')},
  buyevent(c){if(!c.u)return;if(c.u.owner)return flash(c,'You can spawn it free from the 🛠️ Tools button','ok');
   if(evt||Date.now()<evtCool)return flash(c,'A token explosion just ran or is running. Try again in a bit.','warn');
   if(c.u.bal<EV_COST||c.u.xp<EV_COST)return flash(c,'You need 10,000 XP to buy a Token Explosion','bad');
   c.u.xp-=EV_COST;c.u.bal-=EV_COST;gain(c.u,-EV_COST);{const k=COLORS.find(x=>x[0]==c.u.color);if(k&&c.u.xp<k[1])c.u.color='white'}if(c.acct)save();send(c,{t:'me',me:me(c)});startEvent(c.u)},
  coin(c,m){const e=evt;if(!e||m.ev!==e.id)return;const cn=e.coins.get(m.id|0);if(!cn)return;const now=Date.now()-e.coinsAt;if(now<cn.t-1500||now>cn.t+cn.life+2500)return;
   const k=lc(c.u.name)+(c.acct?'':'#g'),set=e.claims[k]=e.claims[k]||new Set();if(set.has(cn.id)||Date.now()-(c.lastCoin||0)<60)return;c.lastCoin=Date.now();set.add(cn.id);
-  const xp=cn.inv?300:cn.big?100:10;addXp(c,xp);qProg(c,'event');send(c,{t:'coinok',id:cn.id,xp,big:cn.big||!!cn.inv})},
+  const xp=cn.mega?500:cn.inv?300:cn.big?100:10;addXp(c,xp);qProg(c,'event');send(c,{t:'coinok',id:cn.id,xp,big:cn.big||!!cn.inv,mega:!!cn.mega})},
  findacct(c,m){if(!c.u?.owner||!c.acct)return;const q=lc(String(m.q||'').trim()).slice(0,20);if(!q)return;
   send(c,{t:'acctfound',list:Object.values(db.users).filter(u=>!u.owner&&(lc(u.name).includes(q)||lc(u.display||'').includes(q))).slice(0,8).map(u=>({name:u.name,dn:dn(u),xp:u.xp||0,online:!!find(u.name)}))})},
  resetpw(c,m){if(!c.u?.owner||!c.acct)return;const u=fuser(m.to);if(!u||u.owner)return flash(c,'Only regular accounts can be reset','bad');
@@ -601,7 +610,7 @@ const handlers={
  settag(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner)return;const h=/^#[0-9a-f]{6}$/i,k=t.u.name.toLowerCase(),x=String(m.text||'').slice(0,16);
   if(!x)delete db.tags[k];else db.tags[k]={text:x,c1:h.test(m.c1)?m.c1:'#dddddd',c2:h.test(m.c2)?m.c2:'#aaaaaa'};t.u.tag='';save();lobby()},
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
-const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon'};
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon','.mp3':'audio/mpeg'};
 const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation-on-black-background-isolated-transparent-alpha-png.webp','pixil-frame-0.png','coinconnect.png'];
 const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
  const rel=u=='/'?'index.html':path.normalize(u).replace(/^(\.\.[\/\\])+/,'');
