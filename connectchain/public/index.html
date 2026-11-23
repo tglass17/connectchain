@@ -72,7 +72,7 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 #mnd{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:170px;background:#fff;border-radius:14px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:300}#mnd button{display:block;width:100%;margin:4px 0;text-align:left;position:relative}
 #ptip{position:fixed;z-index:500;background:#111827;color:#fff;border-radius:12px;padding:10px 12px;font-size:15px;line-height:1.55;pointer-events:none;display:none;box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:270px}#ptip b{color:#fde68a}#ptip .sm{color:#9ca3af;font-size:13px}
 #coins{position:fixed;inset:0;z-index:150;pointer-events:none}
-#stlayer{position:fixed;inset:0;z-index:140;pointer-events:none;display:none;overflow:hidden}
+#stlayer{position:fixed;inset:0;z-index:140;pointer-events:none;display:none;overflow:hidden;contain:layout paint}
 .mus{position:absolute;left:0;top:0;will-change:transform}.mus>.g{position:relative;height:100%;animation:musgal .3s ease-in-out infinite}.mus img,.mus span{display:block;height:100%;width:auto}.mus .gh{position:absolute;top:0;height:100%;width:auto}
 @keyframes musgal{0%,100%{transform:translateY(0) rotate(-1.6deg)}50%{transform:translateY(-7%) rotate(1.6deg)}}
 .dust{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(205,165,115,.8),rgba(150,110,70,.4) 55%,transparent 72%);animation:dustp var(--d,1s) ease-out forwards}
@@ -85,9 +85,13 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 #telayer{position:fixed;inset:0;z-index:160;pointer-events:none;display:none;overflow:hidden}
 #tebar{position:fixed;top:14px;left:0;right:0;text-align:center;z-index:170;display:none;font-size:min(8vw,72px);color:#fde047;text-shadow:0 0 18px #f59e0b,0 4px 0 #92400e;letter-spacing:4px;animation:tedrop .5s ease-out;pointer-events:none;white-space:nowrap}
 @keyframes tedrop{from{transform:translateY(-150%);opacity:0}}
-.coin{position:absolute;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;filter:drop-shadow(0 0 8px gold);animation:cpop .25s ease-out,cbob 1s .25s ease-in-out infinite}
-.coin.big{filter:drop-shadow(0 0 16px #fff) drop-shadow(0 0 10px gold)}
-.coin.inv{filter:invert(1) hue-rotate(170deg) drop-shadow(0 0 14px #0ff) drop-shadow(0 0 12px #f0f);animation:cpop .25s ease-out,invg .5s steps(1) infinite}
+.coin{position:absolute;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;animation:cpop .25s ease-out,cbob 1s .25s ease-in-out infinite}
+.coin::before{content:'';position:absolute;inset:-22%;border-radius:50%;background:radial-gradient(circle,rgba(255,215,0,.5),rgba(255,215,0,0) 66%);pointer-events:none;z-index:-1}
+.coin.big::before{background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,215,0,.5) 40%,rgba(255,215,0,0) 68%)}
+.coin.inv{filter:invert(1) hue-rotate(170deg);animation:cpop .25s ease-out,invg .5s steps(1) infinite}
+.coin.inv::before{background:radial-gradient(circle,rgba(0,255,255,.6),rgba(255,0,255,.4) 45%,transparent 68%)}
+.coin.mega::before{inset:-32%;background:radial-gradient(circle,rgba(255,255,255,.95),rgba(255,80,220,.6) 38%,rgba(120,80,255,.3) 56%,transparent 70%)}
+.coin .mb{position:absolute;bottom:2%;left:50%;transform:translateX(-50%);font-weight:900;color:#fff;background:#be185d;border:3px solid #fff;border-radius:99px;padding:0 .5em;pointer-events:none;font-size:min(5vw,34px);white-space:nowrap}
 @keyframes invg{0%{translate:0 0;skew:0deg}20%{translate:5px -3px;transform:skewX(8deg)}40%{translate:-6px 2px;transform:skewX(-6deg)}60%{translate:3px 4px;transform:none}80%{translate:-4px -4px;transform:skewX(5deg)}100%{translate:0 0}}
 .mus.glt>.g{animation:musgal .3s ease-in-out infinite,musglt .5s steps(1) infinite}
 @keyframes musglt{0%{filter:invert(1) hue-rotate(180deg) drop-shadow(5px 0 #f0f) drop-shadow(-5px 0 #0ff);translate:0 0;clip-path:none}18%{filter:invert(1) hue-rotate(120deg) contrast(2) drop-shadow(-7px 0 #f0f) drop-shadow(7px 0 #0f0);translate:10px 0;clip-path:inset(0 0 55% 0)}34%{filter:invert(1) hue-rotate(180deg) drop-shadow(4px 0 #0ff) drop-shadow(-4px 0 #f0f);translate:-12px 0;clip-path:inset(45% 0 0 0)}52%{filter:invert(1) hue-rotate(240deg) saturate(3) drop-shadow(6px 2px #ff0) drop-shadow(-6px -2px #0ff);translate:6px -4px;clip-path:none}70%{filter:invert(1) hue-rotate(180deg) brightness(1.6) drop-shadow(-5px 0 #f0f) drop-shadow(5px 0 #0ff);translate:-8px 3px;clip-path:inset(20% 0 30% 0)}86%{filter:invert(1) hue-rotate(160deg) drop-shadow(5px 0 #f0f) drop-shadow(-5px 0 #0ff);translate:0 0;clip-path:none}}
@@ -122,6 +126,20 @@ html.bh-hide body>*:not(#bhlayer):not(#bhdim):not(#bhblock):not(#coins):not(#tel
 .rbw body{background:var(--rbp) fixed;background-size:200% 100%;animation:rbflow 12s linear infinite}
 .rbw header,.rbw button:not(.no),.rbw #bar{background:var(--rbs) fixed;background-size:200% 100%;animation:rbflow 12s linear infinite}
 @keyframes rbflow{from{background-position:200% 0}to{background-position:0 0}}
+
+#tklayer{position:fixed;inset:0;z-index:145;pointer-events:none;overflow:hidden}#tktop{position:fixed;inset:0;z-index:9990;pointer-events:none}
+.tkflash{position:absolute;inset:0;background:#fff}
+.tkdark{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 14%,rgba(20,8,0,.55))}
+.tkglow{position:absolute;left:50%;top:50%;width:70vmin;height:70vmin;border-radius:50%;background:radial-gradient(circle,rgba(255,200,90,.95),rgba(255,120,20,.45) 40%,transparent 68%);opacity:0;transform:translate(-50%,-50%) scale(.1)}
+.tkcrack{position:absolute;inset:0;width:100%;height:100%}
+.tkbig{position:absolute;left:50%;top:50%;height:24vmin;width:auto;transform:translate(-50%,-50%) scale(.05);will-change:transform}
+.tkpuff{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(255,240,215,.9),rgba(205,150,90,.5) 55%,transparent 72%)}
+.tk{position:absolute;left:0;top:0;will-change:transform}.tk>.g{height:100%;animation:tkbob .22s ease-in-out infinite}.tk img,.tk span{display:block;height:100%;width:auto}
+@keyframes tkbob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14%) rotate(4deg)}}
+.tkbonk{position:absolute;font-size:min(9vw,70px);font-weight:900;color:#fff;-webkit-text-stroke:2px #7c2d12;text-shadow:0 4px 0 #7c2d12,0 0 18px #f59e0b;z-index:9999;white-space:nowrap}
+.tkpulse{position:fixed;inset:0;pointer-events:none;z-index:120;background:radial-gradient(circle at 50% 50%,rgba(150,80,20,.1),rgba(90,40,5,.5));animation:tkpul 1.1s ease-in-out infinite}@keyframes tkpul{0%,100%{opacity:.1}50%{opacity:1}}
+html.tkbrown{transition:filter 1.2s;filter:sepia(1) saturate(1.8) hue-rotate(-12deg)}
+#evreqs{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:260;display:flex;flex-direction:column;gap:8px}.evreq{background:#fff;color:#111;border:3px solid #f59e0b;border-radius:14px;padding:12px 16px;box-shadow:0 8px 30px #0006;font-size:20px}
 </style></head><body>
 <header><b>ConnectChain</b>
 <div id="out"><input id="gname" placeholder="type username here" maxlength="16" autocomplete="off"><button class="go" onclick="guest()">Enter</button>
@@ -342,7 +360,8 @@ function on(m){
  if(m.t=='liveev'){liveData=m;if(liveOpen)renderLive()}
  if(m.t=='reports'){reportsData=m.list;rptUpdate();if(showRpt&&!$('menu').contains(document.activeElement))renderReports()}
  if(m.t=='friends'){friendsData=m;frUpdate()}
- if(m.t=='tevent'){if(m.kind=='blackhole')blackHole(m);else if(m.kind=='stampede')stampede(m);else tokenEvent(m)}
+ if(m.t=='tevent'){if(m.kind=='blackhole')blackHole(m);else if(m.kind=='stampede')stampede(m);else if(m.kind=='turkey')turkeyEvent(m);else tokenEvent(m)}
+ if(m.t=='evreq')evReq(m);if(m.t=='evreqgone')evGone(m.id);
  if(m.t=='coinok')coinFloat(m);
  if(m.t=='loggedout')loggedOut();
  if(m.t=='selfdestruct')selfDestruct();
@@ -627,7 +646,7 @@ function openFriends(){send({t:'friends'});showReqs=false;const f=friendsData,on
  (f.friends.length?f.friends.map(x=>`<div class="row"><span>${on(x.name)?'🟢':'⚪'} ${esc(x.dn)}</span><button class="no" onclick="unfriend('${esc(x.name)}')">Remove</button></div>`).join(''):"No friends yet. Click a player's name to send a friend request!")+
  (f.out.length?`<hr><small>Waiting on: ${f.out.map(esc).join(', ')}</small>`:'')}
 function openTools(){showReqs=false;const mm=$('menu');mm.style.display='block';
- mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🛠️ Tools</h3><button class="go" style="font-size:22px;width:100%" onclick="send({t:'spawnevent'});closeMenu()">💥 SPAWN TOKEN EXPLOSION</button><button class="go" style="font-size:22px;width:100%;margin-top:8px;background:#6d28d9" onclick="send({t:'spawnevent',kind:'blackhole'});closeMenu()">🕳️ SPAWN BLACK HOLE</button><button class="go" style="font-size:22px;width:100%;margin-top:8px;background:#92400e" onclick="send({t:'spawnevent',kind:'stampede'});closeMenu()">🐎 SPAWN MUSTANG STAMPEDE</button><p><small>Free for you, no daily limit. Token Explosion lasts about 20 seconds, Black Hole about 25.</small></p><hr><button class="go" style="width:100%;font-size:20px;background:#0f766e" onclick="openAccts()">👥 Account Manager</button><p><small>View any account (even offline): ban, ban linked accounts, terminate, give XP.</small></p><hr><button class="go" style="width:100%;font-size:20px;background:#7c3aed" onclick="openMega()">🏟️ Create Mega Lobby</button><p><small>Admin only: a lobby for up to 30 players with a prize for the winner.</small></p><hr><b>🔑 Account recovery</b><br><small>For someone locked out. Works even if they are offline.</small><br><input id="afq" maxlength="20" placeholder="their username or display name" style="width:100%;border:2px solid var(--t1);margin:6px 0" onkeydown="if(event.key=='Enter')findAcct()"><button onclick="findAcct()">Find account</button><div id="afr" style="margin-top:8px"></div>${cdForm()}`;codesData=[];renderCdl();send({t:'codeslist'})}
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🛠️ Tools</h3><button class="go" style="font-size:22px;width:100%" onclick="send({t:'spawnevent'});closeMenu()">💥 SPAWN TOKEN EXPLOSION</button><button class="go" style="font-size:22px;width:100%;margin-top:8px;background:#6d28d9" onclick="send({t:'spawnevent',kind:'blackhole'});closeMenu()">🕳️ SPAWN BLACK HOLE</button><button class="go" style="font-size:22px;width:100%;margin-top:8px;background:#92400e" onclick="send({t:'spawnevent',kind:'stampede'});closeMenu()">🐎 SPAWN MUSTANG STAMPEDE</button><button class="go" style="font-size:22px;width:100%;margin-top:8px;background:#a16207" onclick="send({t:'spawnevent',kind:'turkey'});closeMenu()">🦃 SPAWN TURKEY EVENT</button><p><small>Free for you, no daily limit. Token Explosion lasts about 20 seconds, Black Hole about 25.</small></p><hr><button class="go" style="width:100%;font-size:20px;background:#0f766e" onclick="openAccts()">👥 Account Manager</button><p><small>View any account (even offline): ban, ban linked accounts, terminate, give XP.</small></p><hr><button class="go" style="width:100%;font-size:20px;background:#7c3aed" onclick="openMega()">🏟️ Create Mega Lobby</button><p><small>Admin only: a lobby for up to 30 players with a prize for the winner.</small></p><hr><b>🔑 Account recovery</b><br><small>For someone locked out. Works even if they are offline.</small><br><input id="afq" maxlength="20" placeholder="their username or display name" style="width:100%;border:2px solid var(--t1);margin:6px 0" onkeydown="if(event.key=='Enter')findAcct()"><button onclick="findAcct()">Find account</button><div id="afr" style="margin-top:8px"></div>${cdForm()}`;codesData=[];renderCdl();send({t:'codeslist'})}
 
 /* ---- event calendar ---- */
 let calData=[],calOff=0,calEdit=null;
@@ -709,8 +728,52 @@ function amBan(linked){const n=amView.name,mins=+$('amm').value||0,reason=$('amr
 function amTerm(){const n=amView.name;if(!confirm('Terminate (delete) '+n+'? This cannot be undone.'))return;const dv=confirm('Also block their devices so they cannot make new accounts? (OK = yes)');send({t:'acctterminate',to:n,devices:dv,reason:($('amr')||{}).value||''});setTimeout(()=>amOpen(n),500)}
 function findAcct(){send({t:'findacct',q:$('afq').value})}
 const tt=(f,ms)=>teT.push(setTimeout(f,ms));
-function teAbort(){teT.forEach(clearTimeout);teT=[];stStop();$('stlayer').style.display='none';$('stlayer').innerHTML='';['telayer','tebar'].forEach(i=>$(i).style.display='none');$('telayer').innerHTML='';$('coins').innerHTML='';document.documentElement.classList.remove('bh-hide');['bhlayer','bhdim','bhblock'].forEach(i=>$(i).style.display='none');$('bhwords').innerHTML='';teBusy=false}
+function teAbort(){teT.forEach(clearTimeout);teT=[];stStop();tkStop();$('stlayer').style.display='none';$('stlayer').innerHTML='';['telayer','tebar'].forEach(i=>$(i).style.display='none');$('telayer').innerHTML='';$('coins').innerHTML='';document.documentElement.classList.remove('bh-hide');['bhlayer','bhdim','bhblock'].forEach(i=>$(i).style.display='none');$('bhwords').innerHTML='';teBusy=false}
 function teImg(src,fb,css){const i=new Image();i.decoding='async';i.style.cssText=css;i.onerror=()=>{const s=document.createElement('span');s.textContent=fb;s.style.cssText=css+';font-size:14vh;line-height:1;height:auto';i.replaceWith(s)};i.src=src;return i}
+/* ---- Turkey Event ---- */
+const TK_FACES_RIGHT=true; /* set to false if harvestturkey.png faces LEFT */
+const TK_IMG='harvestturkey.png',TK_FOOD='turkey_food_PNG17.png';let tkAud=[],tkNodes=[],tkAsp=1.2,tkFAsp=1.2;
+function tkSnd(name,vol,loop){try{const a=new Audio(encodeURI(name));a.volume=vol;a.loop=!!loop;tkAud.push(a);const p=a.play();if(p&&p.catch)p.catch(()=>{});return a}catch(e){return null}}
+function tkStop(){tkAud.forEach(a=>{try{a.pause()}catch(e){}});tkAud=[];tkNodes.forEach(n=>n.remove());tkNodes=[];document.documentElement.classList.remove('tkbrown');document.querySelectorAll('header,.panel,#bl').forEach(e=>{e.getAnimations&&e.getAnimations().forEach(a=>a.cancel())})}
+function tkFade(a,ms){if(!a)return;const v0=a.volume,n=10;for(let i=1;i<=n;i++)tt(()=>{try{a.volume=Math.max(0,v0*(1-i/n))}catch(e){}},ms*i/n)}
+function tkCrack(W,H){const cx=W/2,cy=H/2,paths=[],R=Math.hypot(W,H)/2;
+ function br(x,y,ang,len,dep,w){let d='M'+x.toFixed(0)+' '+y.toFixed(0),px=x,py=y,a=ang;const steps=Math.max(3,len/26|0);for(let i=0;i<steps;i++){a+=(Math.random()-.5)*.9;const l=len/steps*(.7+Math.random()*.6);px+=Math.cos(a)*l;py+=Math.sin(a)*l;d+='L'+px.toFixed(0)+' '+py.toFixed(0);
+   if(dep<3&&Math.random()<.34)br(px,py,a+(Math.random()<.5?-1:1)*(.5+Math.random()*.8),len*(.35+Math.random()*.3),dep+1,w*.62)}
+  paths.push({d,w,r:Math.hypot(x-cx,y-cy)/R,dep})}
+ const n=9;for(let i=0;i<n;i++)br(cx,cy,i/n*Math.PI*2+(Math.random()-.5)*.5,R*(.55+Math.random()*.45),0,9);
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','tkcrack');svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const els=[];paths.forEach(p=>{[['#1a0a00',p.w+5],['#ffe2b0',Math.max(1.5,p.w*.4)]].forEach(([c,w])=>{const e=document.createElementNS('http://www.w3.org/2000/svg','path');e.setAttribute('d',p.d);e.setAttribute('pathLength','1');e.setAttribute('fill','none');e.setAttribute('stroke',c);e.setAttribute('stroke-width',w);e.setAttribute('stroke-linecap','round');e.setAttribute('stroke-linejoin','round');e.style.strokeDasharray='1';e.style.strokeDashoffset='1';svg.appendChild(e);els.push([e,p])})});
+ return{svg,els}}
+function tkPuff(L,x,y){for(let i=0;i<7;i++){const p=document.createElement('div'),s=40+Math.random()*80;p.className='tkpuff';p.style.cssText=`left:${x-s/2}px;top:${y-s/2}px;width:${s}px;height:${s}px`;L.appendChild(p);const a=Math.random()*6.28,r=60+Math.random()*120;p.animate([{transform:'translate(0,0) scale(.3)',opacity:.9},{transform:`translate(${Math.cos(a)*r}px,${Math.sin(a)*r-60}px) scale(1.6)`,opacity:0}],{duration:900+Math.random()*500,easing:'ease-out'}).onfinish=()=>p.remove()}}
+function tkRun(L,y,dir,fromX,dur){const H=Math.round(Math.min(innerWidth,innerHeight)*.2),w=Math.round(H*tkAsp),el=document.createElement('div'),g=document.createElement('div');el.className='tk';el.style.cssText=`top:${y}px;height:${H}px;width:${w}px;z-index:${Math.round(y)}`;g.className='g';g.style.animationDelay='-'+(Math.random()*.2).toFixed(2)+'s';
+ const flip=(dir>0)!==TK_FACES_RIGHT;const im=teImg(TK_IMG,'🦃',`height:100%;width:auto;${flip?'transform:scaleX(-1);':''}`);g.appendChild(im);el.appendChild(g);L.appendChild(el);
+ const x0=fromX!=null?fromX-w/2:dir>0?-w:innerWidth,x1=dir>0?innerWidth-w:0;
+ el.style.transform=`translateX(${x0}px)`;const a=el.animate([{transform:`translateX(${x0}px)`},{transform:`translateX(${x1}px)`}],{duration:dur,easing:'cubic-bezier(.4,.1,.9,.9)',fill:'forwards'});
+ a.onfinish=()=>{const bx=dir>0?innerWidth-60:60;const t=document.createElement('div');t.className='tkbonk';t.textContent='BONK!';t.style.cssText=`top:${y-10}px;${dir>0?'right:20px':'left:20px'}`;L.appendChild(t);t.animate([{transform:'scale(.3) rotate(-8deg)',opacity:0},{transform:'scale(1.2) rotate(6deg)',opacity:1,offset:.25},{transform:'scale(1) rotate(0)',opacity:1,offset:.8},{transform:'scale(1)',opacity:0}],{duration:1000,fill:'forwards'}).onfinish=()=>t.remove();tkPuff(L,bx,y+H/2);
+  g.style.animation='none';const f=teImg(TK_FOOD,'🍗','height:100%;width:auto');g.replaceChildren(f);el.animate([{transform:`translateX(${x1}px) scale(1.25)`},{transform:`translateX(${x1}px) scale(1)`}],{duration:250,fill:'forwards'});
+  tt(()=>{const o=el.animate([{opacity:1},{opacity:0}],{duration:700,fill:'forwards'});o.onfinish=()=>el.remove()},3200)}}
+function turkeyEvent(m){if(teBusy)return;teBusy=true;coinPos={};const W=innerWidth,H=innerHeight,L=document.createElement('div');L.id='tklayer';document.body.appendChild(L);tkNodes.push(L);const TOP=document.createElement('div');TOP.id='tktop';document.body.appendChild(TOP);tkNodes.push(TOP);
+ const pa=new Image();pa.onload=()=>{if(pa.naturalHeight)tkAsp=pa.naturalWidth/pa.naturalHeight};pa.src=TK_IMG;const pf=new Image();pf.onload=()=>{if(pf.naturalHeight)tkFAsp=pf.naturalWidth/pf.naturalHeight};pf.src=TK_FOOD;
+ const lab=document.createElement('div');lab.className='stlab';lab.innerHTML=`<div class="t1">🦃 TURKEY EVENT</div><div class="t2">spawned by ${esc(m.by||'someone')}</div>`;lab.style.zIndex=9991;TOP.appendChild(lab);
+ const dk=document.createElement('div');dk.className='tkdark';dk.style.opacity=0;L.appendChild(dk);dk.animate([{opacity:0},{opacity:1}],{duration:10000,fill:'forwards'});
+ const gl=document.createElement('div');gl.className='tkglow';L.appendChild(gl);gl.animate([{opacity:.2,transform:'translate(-50%,-50%) scale(.1)'},{opacity:1,transform:'translate(-50%,-50%) scale(1.3)'}],{duration:10000,fill:'forwards',easing:'ease-in'});
+ const{svg,els}=tkCrack(W,H);L.appendChild(svg);els.forEach(([e,p])=>{const st=p.r*7800+p.dep*350,du=900+Math.random()*900;e.animate([{strokeDashoffset:1},{strokeDashoffset:0}],{duration:du,delay:st,easing:'steps(9,end)',fill:'forwards'})});
+ const sh=tkSnd('Shake Impact Sound Effects.mp3',.9,true);
+ const sk=Array.from(document.querySelectorAll('header,.panel,#bl'));for(let t=0;t<10000;t+=70){const amp=1+Math.pow(t/10000,1.6)*16;tt(()=>{const dx=(Math.random()-.5)*2*amp,dy=(Math.random()-.5)*2*amp;sk.forEach(e=>e.animate([{translate:`${dx}px ${dy}px`}],{duration:70,fill:'forwards'}))},t)}
+ tt(()=>{if(sh){try{sh.pause()}catch(e){}}tkSnd('Big Explosion Sound Effect.mp3',1);sk.forEach(e=>e.getAnimations().forEach(a=>a.cancel()));
+  svg.animate([{opacity:1},{opacity:0}],{duration:600,fill:'forwards'});dk.animate([{opacity:1},{opacity:0}],{duration:900,fill:'forwards'});gl.animate([{opacity:1},{opacity:0}],{duration:900,fill:'forwards'});
+  const fl=document.createElement('div');fl.className='tkflash';TOP.appendChild(fl);fl.animate([{opacity:1},{opacity:1,offset:.25},{opacity:0}],{duration:1300,fill:'forwards'}).onfinish=()=>fl.remove();
+  const big=teImg(TK_IMG,'🦃','');big.className='tkbig';big.style.height='24vmin';L.appendChild(big);big.animate([{transform:'translate(-50%,-50%) scale(.05)',opacity:1,filter:'blur(0)'},{transform:'translate(-50%,-50%) scale(2.6)',opacity:1,filter:'blur(0)',offset:.6},{transform:'translate(-50%,-62%) scale(4.2)',opacity:0,filter:'blur(14px) brightness(2)'}],{duration:3300,easing:'ease-out',fill:'forwards'}).onfinish=()=>big.remove();
+  for(let i=0;i<5;i++)tt(()=>tkPuff(L,W/2+(Math.random()-.5)*W*.3,H/2+(Math.random()-.5)*H*.2),1600+i*300);
+  document.documentElement.classList.add('tkbrown');const pu=document.createElement('div');pu.className='tkpulse';document.body.appendChild(pu);tkNodes.push(pu)},10000);
+ tt(()=>{tkSnd('Kevin MacLeod_ Happy Happy Game Show.mp3',.7,true)},11200);
+ [13600,19000,24000,29000,33500].forEach((T,wi)=>tt(()=>{for(let i=0;i<5;i++){const dir=Math.random()<.5?-1:1,y=Math.max(60,Math.min(H-Math.min(W,H)*.2-10,(.12+Math.random()*.7)*H));tt(()=>tkRun(L,y,dir,wi==0?W/2:null,2200+Math.random()*1100),i*180)}},T));
+ m.coins.forEach(c=>tt(()=>spawnCoin(m.id,c),m.startIn+c.t));
+ tt(()=>{document.documentElement.classList.remove('tkbrown');tkAud.forEach(a=>tkFade(a,2800))},37200);
+ tt(()=>{tkStop();teBusy=false},41200)}
+const evCards={};
+function evReq(m){const box=$('evreqs')||(()=>{const b=document.createElement('div');b.id='evreqs';document.body.appendChild(b);return b})();if(evCards[m.id])return;const d=document.createElement('div');d.className='evreq';d.innerHTML=`<b>${esc(m.dn||m.from)}</b> wants to spawn a <b>🦃 Turkey Event</b><div style="display:flex;gap:8px;margin-top:8px"><button class="go" style="flex:1">Accept</button><button class="no" style="flex:1">Deny</button></div>`;const[b1,b2]=d.querySelectorAll('button');b1.onclick=()=>{send({t:'evresp',id:m.id,ok:true});evGone(m.id)};b2.onclick=()=>{send({t:'evresp',id:m.id,ok:false});evGone(m.id)};box.appendChild(d);evCards[m.id]=d;setTimeout(()=>evGone(m.id),60000)}
+function evGone(id){const d=evCards[id];if(d){d.remove();delete evCards[id]}}
 function tokenEvent(m){if(teBusy)return;teBusy=true;const L=$('telayer'),bar=$('tebar');L.innerHTML='';L.style.display='block';coinPos={};
  const base='position:absolute;left:0;top:42vh;height:16vh;width:auto;transform:translateX(-25vw);will-change:transform;';const gs=[];
  for(let k=5;k>=0;k--){const g=teImg('projectile.png','☄️',base+`opacity:${k?(0.5/k).toFixed(2):1};filter:blur(${k?3:1.2}px)`);L.appendChild(g);gs.push([g,k])}
@@ -722,10 +785,10 @@ function tokenEvent(m){if(teBusy)return;teBusy=true;const L=$('telayer'),bar=$('
  tt(()=>{bar.style.display='none'},m.startIn+15000+1500);
  tt(()=>{L.style.display='none';L.innerHTML='';teBusy=false},m.startIn+15000+4000)}
 const COINSRC=['coinconnect.png','coinconnect.PNG','CoinConnect.png','coinConnect.png','coinconnect.webp','coinconnect.jpg'];
-function spawnCoin(ev,c,burst){const d=document.createElement('div'),sz=Math.round(Math.min(c.inv?250:c.big?215:150,innerWidth*(c.inv?.4:c.big?.35:.26)));d.className='coin'+(c.inv?' inv':c.big?' big':'');{const im=new Image();im.draggable=false;im.alt='';im.style.cssText='width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none';let ci=0;im.onerror=()=>{if(++ci<COINSRC.length)im.src=COINSRC[ci];else im.replaceWith(document.createTextNode('🪙'))};im.src=COINSRC[0];d.appendChild(im)}d.style.cssText=`left:${burst?50:c.x}vw;top:${burst?50:c.y}vh;width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.85)}px`;
+function spawnCoin(ev,c,burst){const d=document.createElement('div'),sz=Math.round(Math.min(c.mega?270:c.inv?250:c.big?215:150,innerWidth*(c.mega?.44:c.inv?.4:c.big?.35:.26))),lx=Math.max(0,Math.min(c.x,(innerWidth-sz)/innerWidth*100)),ty=Math.max(0,Math.min(c.y,(innerHeight-sz)/innerHeight*100));d.className='coin'+(c.mega?' mega':c.inv?' inv':c.big?' big':'');{const im=new Image();im.draggable=false;im.alt='';im.style.cssText='width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none';let ci=0;im.onerror=()=>{if(++ci<COINSRC.length)im.src=COINSRC[ci];else im.replaceWith(document.createTextNode('🪙'))};im.src=COINSRC[0];d.appendChild(im);if(c.mega){const mb=document.createElement('span');mb.className='mb';mb.textContent='500 XP';d.appendChild(mb)}}d.style.cssText=`left:${burst?50:lx}vw;top:${burst?50:ty}vh;width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.85)}px`;
  d.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();if(d.dataset.k)return;d.dataset.k=1;const r=d.getBoundingClientRect();coinPos[c.id]=[r.left,r.top];send({t:'coin',ev,id:c.id});d.remove()});
- $('coins').appendChild(d);if(burst)requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.transition='left .8s cubic-bezier(.2,.8,.3,1),top .8s cubic-bezier(.2,.8,.3,1)';d.style.left=c.x+'vw';d.style.top=c.y+'vh'}));tt(()=>d.remove(),c.life)}
-function coinFloat(m){const p=coinPos[m.id]||[innerWidth/2,innerHeight/2],f=document.createElement('div');f.className='cf';f.textContent=you&&you.owner?'🪙':'+'+m.xp;f.style.cssText=`left:${p[0]}px;top:${p[1]}px;font-size:${m.big?44:30}px`;$('coins').appendChild(f);setTimeout(()=>f.remove(),1000)}
+ $('coins').appendChild(d);if(burst)requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.transition='left .8s cubic-bezier(.2,.8,.3,1),top .8s cubic-bezier(.2,.8,.3,1)';d.style.left=lx+'vw';d.style.top=ty+'vh'}));tt(()=>d.remove(),c.life)}
+function coinFloat(m){const p=coinPos[m.id]||[innerWidth/2,innerHeight/2],f=document.createElement('div');f.className='cf';f.textContent=you&&you.owner?'🪙':'+'+m.xp;f.style.cssText=`left:${p[0]}px;top:${p[1]}px;font-size:${m.mega?64:m.big?44:30}px`;$('coins').appendChild(f);setTimeout(()=>f.remove(),1000)}
 let sdBusy=false;
 /* ---- Mustang Stampede ---- */
 const MUS_FLIP=false; /* set to true if mustangconnectchain.png faces RIGHT (they should run to the left) */
@@ -742,13 +805,13 @@ function stRun(L,y,dur,glt){const g=stGeom(y),el=document.createElement('div'),i
  inn.appendChild(teImg(stSrc,'🐎',`position:relative;height:100%;width:auto;${fl}`));el.appendChild(inn);L.appendChild(el);
  const a=el.animate([{transform:`translateX(${g.S}px)`},{transform:`translateX(${-g.E}px)`}],{duration:dur,easing:'linear',fill:'forwards'});stLive++;a.onfinish=()=>{stLive--;el.remove()};
  const gy=g.top+g.h*.92;for(let i=0,n=2+(Math.random()*2|0);i<n;i++){const f=.06+Math.random()*.88;tt(()=>{const left=g.S-(g.S+g.E)*f;stDust(L,left+g.w*(MUS_FLIP?.15:.85),gy,glt||Math.random()<.4,g.h/140)},dur*f)}}
-function stampede(m){if(teBusy)return;teBusy=true;coinPos={};const L=$('stlayer'),DUR=25000;L.innerHTML='';L.style.display='block';
+function stampede(m){if(teBusy)return;teBusy=true;coinPos={};stDN=0;stLive=0;const L=$('stlayer'),DUR=25000;L.innerHTML='';L.style.display='block';
  const pr=new Image();pr.onload=()=>{if(pr.naturalHeight)stAsp=pr.naturalWidth/pr.naturalHeight};pr.src='mustangconnectchain.png';
  if(!stBlob){stBlob=true;fetch('mustangconnectchain.png').then(r=>r.ok?r.blob():null).then(b=>{if(b)stSrc=URL.createObjectURL(b)}).catch(()=>{})}
  try{stAud=new Audio('mustangstampede.mp3');stAud.loop=true;stAud.volume=.85;const p=stAud.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
  const lab=document.createElement('div');lab.className='stlab';lab.innerHTML=`<div class="t1">🐎 MUSTANG STAMPEDE</div><div class="t2">spawned by ${esc(m.by||'someone')}</div>`;L.appendChild(lab);
  const hz=document.createElement('div');hz.className='sthaze';L.appendChild(hz);
- for(let t=0;t<DUR-3200;t+=150+Math.random()*100)tt(()=>stRun(L,18+Math.random()*74,2700+Math.random()*1500),t);
+ for(let t=0;t<DUR-3200;t+=300+Math.random()*130)tt(()=>{if(stLive<16)stRun(L,18+Math.random()*74,2700+Math.random()*1500)},t);
  m.coins.forEach(c=>{const when=m.startIn+c.t,g=stGeom(c.y),X=c.x/100*innerWidth,dur=3000,left=X-g.w/2,tau=dur*(g.S-left)/(g.S+g.E);
   tt(()=>stRun(L,c.y,dur,c.inv),Math.max(0,when-tau));tt(()=>{spawnCoin(m.id,c);stDust(L,X,c.y/100*innerHeight+g.h*.4,true,g.h/140)},when)});
  for(let i=1;i<=6;i++)tt(()=>{if(stAud)stAud.volume=.85*(1-i/6)},DUR-1200+i*200);
@@ -765,7 +828,7 @@ function selfDestruct(){if(sdBusy)return;sdBusy=true;closeMenu();banner('⛔ Why
 const setLive=(n,on)=>{send({t:'setliveev',to:n,on,limit:$('lvl')?+$('lvl').value:3});closeMenu()};
 function openLive(){liveOpen=true;showReqs=false;showRpt=false;send({t:'liveev'});renderLive()}
 function renderLive(){const mm=$('menu'),L=liveData,no=L.left<=0;mm.style.display='block';
- mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🎬 Mod Live Event</h3><p style="font-size:22px">Events left today: <b>${L.left}</b> of <b>${L.limit}</b></p><button class="go" ${no?'disabled':''} style="font-size:20px;width:100%" onclick="send({t:'spawnevent'});closeMenu()">💥 Spawn Token Explosion</button><button class="go" ${no?'disabled':''} style="font-size:20px;width:100%;margin-top:8px;background:#6d28d9" onclick="send({t:'spawnevent',kind:'blackhole'});closeMenu()">🕳️ Spawn Black Hole</button><button class="go" ${no?'disabled':''} style="font-size:20px;width:100%;margin-top:8px;background:#92400e" onclick="send({t:'spawnevent',kind:'stampede'});closeMenu()">🐎 Spawn Mustang Stampede</button><p><small>${no?'You have used all your events today.':'Everyone online will see it, and your name is shown.'} Your count resets every day at midnight (Eastern time).</small></p>`}
+ mm.innerHTML=`<div style="text-align:right"><button class="no" onclick="closeMenu()">✕</button></div><h3 style="margin:0 0 10px">🎬 Mod Live Event</h3><p style="font-size:22px">Events left today: <b>${L.left}</b> of <b>${L.limit}</b></p><button class="go" ${no?'disabled':''} style="font-size:20px;width:100%" onclick="send({t:'spawnevent'});closeMenu()">💥 Spawn Token Explosion</button><button class="go" ${no?'disabled':''} style="font-size:20px;width:100%;margin-top:8px;background:#6d28d9" onclick="send({t:'spawnevent',kind:'blackhole'});closeMenu()">🕳️ Spawn Black Hole</button><button class="go" ${no?'disabled':''} style="font-size:20px;width:100%;margin-top:8px;background:#92400e" onclick="send({t:'spawnevent',kind:'stampede'});closeMenu()">🐎 Spawn Mustang Stampede</button><button class="go" ${no?'disabled':''} style="font-size:18px;width:100%;margin-top:8px;background:#a16207" onclick="send({t:'spawnevent',kind:'turkey'});closeMenu()">🦃 Ask to spawn Turkey Event (owner must approve)</button><p><small>${no?'You have used all your events today.':'Everyone online will see it, and your name is shown.'} Your count resets every day at midnight (Eastern time).</small></p>`}
 function bhFallback(img){const f=document.createElement('div');f.className='bhfb';img.replaceWith(f)}
 function bhSnapshot(W,cx,cy){const out=[],skip='#bhlayer,#bhdim,#bhblock,#coins,#telayer,#tebar,#sd,#fb,#scare,#ov';
  const shown=el=>{const r=el.getBoundingClientRect();if(r.width<2||r.height<2||r.right<0||r.bottom<0||r.left>innerWidth||r.top>innerHeight)return false;const cs=getComputedStyle(el);return cs.visibility!='hidden'&&cs.display!='none'&&parseFloat(cs.opacity)>0.05};
