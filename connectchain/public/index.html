@@ -75,7 +75,7 @@ html.redalert{transition:filter 2s;filter:sepia(1) saturate(7) hue-rotate(-45deg
 #stlayer{position:fixed;inset:0;z-index:140;pointer-events:none;display:none;overflow:hidden}
 .mus{position:absolute;left:0;top:0;will-change:transform}.mus>.g{position:relative;height:100%;animation:musgal .3s ease-in-out infinite}.mus img,.mus span{display:block;height:100%;width:auto}.mus .gh{position:absolute;top:0;height:100%;width:auto}
 @keyframes musgal{0%,100%{transform:translateY(0) rotate(-1.6deg)}50%{transform:translateY(-7%) rotate(1.6deg)}}
-.dust{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(205,165,115,.8),rgba(150,110,70,.4) 55%,transparent 72%);filter:blur(2px);animation:dustp var(--d,1s) ease-out forwards}
+.dust{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(205,165,115,.8),rgba(150,110,70,.4) 55%,transparent 72%);animation:dustp var(--d,1s) ease-out forwards}
 @keyframes dustp{from{transform:translate(0,0) scale(.3);opacity:.9}to{transform:translate(var(--dx),var(--dy)) scale(2);opacity:0}}
 .dbit{position:absolute;border-radius:50%;background:#8b6b45;animation:dbit .75s cubic-bezier(.25,.6,.5,1) forwards}
 @keyframes dbit{0%{transform:translate(0,0);opacity:1}40%{transform:translate(calc(var(--dx)*.6),calc(var(--h)*-1));opacity:1}100%{transform:translate(var(--dx),calc(var(--h)*.3));opacity:0}}
@@ -710,7 +710,7 @@ function amTerm(){const n=amView.name;if(!confirm('Terminate (delete) '+n+'? Thi
 function findAcct(){send({t:'findacct',q:$('afq').value})}
 const tt=(f,ms)=>teT.push(setTimeout(f,ms));
 function teAbort(){teT.forEach(clearTimeout);teT=[];stStop();$('stlayer').style.display='none';$('stlayer').innerHTML='';['telayer','tebar'].forEach(i=>$(i).style.display='none');$('telayer').innerHTML='';$('coins').innerHTML='';document.documentElement.classList.remove('bh-hide');['bhlayer','bhdim','bhblock'].forEach(i=>$(i).style.display='none');$('bhwords').innerHTML='';teBusy=false}
-function teImg(src,fb,css){const i=new Image();i.style.cssText=css;i.onerror=()=>{const s=document.createElement('span');s.textContent=fb;s.style.cssText=css+';font-size:14vh;line-height:1;height:auto';i.replaceWith(s)};i.src=src;return i}
+function teImg(src,fb,css){const i=new Image();i.decoding='async';i.style.cssText=css;i.onerror=()=>{const s=document.createElement('span');s.textContent=fb;s.style.cssText=css+';font-size:14vh;line-height:1;height:auto';i.replaceWith(s)};i.src=src;return i}
 function tokenEvent(m){if(teBusy)return;teBusy=true;const L=$('telayer'),bar=$('tebar');L.innerHTML='';L.style.display='block';coinPos={};
  const base='position:absolute;left:0;top:42vh;height:16vh;width:auto;transform:translateX(-25vw);will-change:transform;';const gs=[];
  for(let k=5;k>=0;k--){const g=teImg('projectile.png','☄️',base+`opacity:${k?(0.5/k).toFixed(2):1};filter:blur(${k?3:1.2}px)`);L.appendChild(g);gs.push([g,k])}
@@ -731,22 +731,24 @@ let sdBusy=false;
 const MUS_FLIP=false; /* set to true if mustangconnectchain.png faces RIGHT (they should run to the left) */
 let stAud=null,stAsp=1.5,stSrc='mustangconnectchain.png',stBlob=false;
 function stStop(){if(stAud){try{stAud.pause();stAud.currentTime=0}catch(e){}stAud=null}}
-function stDust(L,x,y,big,k){k=k||1;const n=big?3:1;for(let i=0;i<n;i++){const d=document.createElement('div'),sz=(18+Math.random()*26)*k;d.className='dust';d.style.cssText=`left:${x+Math.random()*14}px;top:${y-sz/2+Math.random()*8}px;width:${sz}px;height:${sz}px;--d:${(.8+Math.random()*.7).toFixed(2)}s;--dx:${(40+Math.random()*90)*k}px;--dy:${(-15-Math.random()*45)*k}px`;d.onanimationend=()=>d.remove();L.appendChild(d)}
- for(let i=0,k=1+Math.random()*3|0;i<k;i++){const b=document.createElement('div'),s=(2+Math.random()*3)*Math.sqrt(k);b.className='dbit';b.style.cssText=`left:${x}px;top:${y}px;width:${s}px;height:${s}px;--dx:${(25+Math.random()*110)*k}px;--h:${(14+Math.random()*46)*k}px`;b.onanimationend=()=>b.remove();L.appendChild(b)}}
+let stDN=0;
+function stDust(L,x,y,big,k){if(stDN>34)return;k=k||1;const n=big?2:1;for(let i=0;i<n;i++){const d=document.createElement('div'),sz=(18+Math.random()*26)*k;stDN++;d.className='dust';d.style.cssText=`left:${x+Math.random()*14}px;top:${y-sz/2+Math.random()*8}px;width:${sz}px;height:${sz}px;--d:${(.8+Math.random()*.7).toFixed(2)}s;--dx:${(40+Math.random()*90)*k}px;--dy:${(-15-Math.random()*45)*k}px`;d.onanimationend=()=>{stDN--;d.remove()};L.appendChild(d)}
+ if(Math.random()<.5)for(let i=0,k=1+Math.random()*2|0;i<k;i++){const b=document.createElement('div'),s=(2+Math.random()*3)*Math.sqrt(k);b.className='dbit';b.style.cssText=`left:${x}px;top:${y}px;width:${s}px;height:${s}px;--dx:${(25+Math.random()*110)*k}px;--h:${(14+Math.random()*46)*k}px`;b.onanimationend=()=>b.remove();L.appendChild(b)}}
 function stGeom(y){const vm=Math.min(innerWidth,innerHeight),h=vm*(.19+y*.0018),w=h*stAsp;return{h,w,top:y/100*innerHeight-h/2,S:innerWidth+20,E:w+20}}
+let stLive=0;
 function stRun(L,y,dur,glt){const g=stGeom(y),el=document.createElement('div'),inn=document.createElement('div'),fl=MUS_FLIP?'transform:scaleX(-1);':'';
  el.className='mus'+(glt?' glt':'');el.style.cssText=`top:${g.top}px;height:${g.h}px;z-index:${Math.round(y)}`;inn.className='g';inn.style.animationDuration=(.26+Math.random()*.12).toFixed(2)+'s';inn.style.animationDelay='-'+(Math.random()*.3).toFixed(2)+'s';
- [[2,.16,3],[1,.3,1.8]].forEach(([k,o,b])=>inn.appendChild(teImg(stSrc,'🐎',`position:absolute;top:0;height:100%;width:auto;left:${(MUS_FLIP?-1:1)*k*g.w*.14}px;opacity:${o};filter:blur(${b}px);${fl}`)));
- inn.appendChild(teImg(stSrc,'🐎',`position:relative;height:100%;width:auto;filter:blur(.7px);${fl}`));el.appendChild(inn);L.appendChild(el);
- const a=el.animate([{transform:`translateX(${g.S}px)`},{transform:`translateX(${-g.E}px)`}],{duration:dur,easing:'linear',fill:'forwards'});a.onfinish=()=>el.remove();
- const gy=g.top+g.h*.92;for(let i=0,n=3+(Math.random()*3|0);i<n;i++){const f=.06+Math.random()*.88;tt(()=>{const left=g.S-(g.S+g.E)*f;stDust(L,left+g.w*(MUS_FLIP?.15:.85),gy,glt||Math.random()<.4,g.h/140)},dur*f)}}
+ if(stLive<12)[[1.5,.3]].forEach(([k,o])=>inn.appendChild(teImg(stSrc,'🐎',`position:absolute;top:0;height:100%;width:auto;left:${(MUS_FLIP?-1:1)*k*g.w*.14}px;opacity:${o};${fl}`)));
+ inn.appendChild(teImg(stSrc,'🐎',`position:relative;height:100%;width:auto;${fl}`));el.appendChild(inn);L.appendChild(el);
+ const a=el.animate([{transform:`translateX(${g.S}px)`},{transform:`translateX(${-g.E}px)`}],{duration:dur,easing:'linear',fill:'forwards'});stLive++;a.onfinish=()=>{stLive--;el.remove()};
+ const gy=g.top+g.h*.92;for(let i=0,n=2+(Math.random()*2|0);i<n;i++){const f=.06+Math.random()*.88;tt(()=>{const left=g.S-(g.S+g.E)*f;stDust(L,left+g.w*(MUS_FLIP?.15:.85),gy,glt||Math.random()<.4,g.h/140)},dur*f)}}
 function stampede(m){if(teBusy)return;teBusy=true;coinPos={};const L=$('stlayer'),DUR=25000;L.innerHTML='';L.style.display='block';
  const pr=new Image();pr.onload=()=>{if(pr.naturalHeight)stAsp=pr.naturalWidth/pr.naturalHeight};pr.src='mustangconnectchain.png';
  if(!stBlob){stBlob=true;fetch('mustangconnectchain.png').then(r=>r.ok?r.blob():null).then(b=>{if(b)stSrc=URL.createObjectURL(b)}).catch(()=>{})}
  try{stAud=new Audio('mustangstampede.mp3');stAud.loop=true;stAud.volume=.85;const p=stAud.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
  const lab=document.createElement('div');lab.className='stlab';lab.innerHTML=`<div class="t1">🐎 MUSTANG STAMPEDE</div><div class="t2">spawned by ${esc(m.by||'someone')}</div>`;L.appendChild(lab);
  const hz=document.createElement('div');hz.className='sthaze';L.appendChild(hz);
- for(let t=0;t<DUR-3200;t+=105+Math.random()*85)tt(()=>stRun(L,18+Math.random()*74,2700+Math.random()*1500),t);
+ for(let t=0;t<DUR-3200;t+=150+Math.random()*100)tt(()=>stRun(L,18+Math.random()*74,2700+Math.random()*1500),t);
  m.coins.forEach(c=>{const when=m.startIn+c.t,g=stGeom(c.y),X=c.x/100*innerWidth,dur=3000,left=X-g.w/2,tau=dur*(g.S-left)/(g.S+g.E);
   tt(()=>stRun(L,c.y,dur,c.inv),Math.max(0,when-tau));tt(()=>{spawnCoin(m.id,c);stDust(L,X,c.y/100*innerHeight+g.h*.4,true,g.h/140)},when)});
  for(let i=1;i<=6;i++)tt(()=>{if(stAud)stAud.volume=.85*(1-i/6)},DUR-1200+i*200);
