@@ -182,6 +182,7 @@ function clanDrop(u){if(u.creq){const c0=db.clans[u.creq];if(c0)c0.req=c0.req.fi
  if(!c.members.length){clanDisband(c);return null}if(lc(c.leader)==lc(u.name))c.leader=c.members[0];return c}
 function clanBoards(){const cs=Object.values(db.clans),o={};for(const k in LBF)o[k]=cs.map(c=>({name:c.name,n:c.members.length,v:Math.round(clanTotal(c,k))})).sort((a,b)=>b.v-a.v||a.name.localeCompare(b.name)).slice(0,50);return o}
 /* ---- device tracking, linked bans, account manager ---- */
+const MAXACC=3;
 const DEVRE=/^[a-f0-9]{16,48}$/;
 function track(c,u){if(db.users[u.name]!==u)return;u.seen=Date.now();if(c.dev){u.devs=u.devs||[];if(!u.devs.includes(c.dev)){u.devs.push(c.dev);if(u.devs.length>12)u.devs.shift()}}
  if(c.ip){u.ips=u.ips||[];if(!u.ips.includes(c.ip)){u.ips.push(c.ip);if(u.ips.length>12)u.ips.shift()}}}
@@ -308,6 +309,7 @@ const handlers={
   login(c,{name:n,xp:0,bal:0,mult:1,color:'white',tag:''},false)},
  signup(c,m){const n=String(m.name||'');if(blocked(c,n))return;if(!okName(n)||String(m.pass||'').length<6)return flash(c,'Valid name + password (6+ chars) needed','bad');
   if(find(n)&&find(n)!==c||Object.keys(db.users).some(k=>k.toLowerCase()==n.toLowerCase()))return flash(c,'Username taken','bad');
+  if(c.dev&&!ownerDev(c.dev)&&Object.values(db.users).filter(x=>!x.owner&&(x.devs||[]).includes(c.dev)).length>=MAXACC)return flash(c,'This device already has '+MAXACC+' accounts. Log in to one of them instead.','bad');
   const u=mk(n,m.pass);u.owner=false;u.born=Date.now();db.users[n]=u;const tk=crypto.randomBytes(24).toString('hex');db.tokens[tk]=n;save();login(c,u,true);send(c,{t:'token',tk})},
  login(c,m){if(blocked(c,m.name))return;const u=db.users[m.name];if(!u||hash(String(m.pass),u.salt)!==u.hash)return flash(c,'Wrong username or password','bad');
   const o=find(u.name);if(o&&o!==c){logout(o);o.ws.close()}
@@ -475,8 +477,11 @@ const handlers={
  acctterminate(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u||u.owner)return flash(c,'Account not found','bad');
   const dv=(u.devs||[]).filter(d=>!ownerDev(d));if(m.devices)for(const d of dv)db.devbans[d]={at:Date.now(),until:0,reason:'Account terminated',by:dn(c.u),from:u.name,term:true};
   terminateAcct(u,String(m.reason||'Account terminated'),dn(c.u));save();flash(c,u.name+' terminated','ok');send(c,{t:'acctdone',name:u.name,gone:true})},
- ban(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!canHit(c,t.u))return;let mins=Math.floor(+m.mins)||0;mins=mins<=0?0:Math.min(mins,525600);const k=t.u.name.toLowerCase();db.bans[k]={until:mins?Date.now()+mins*6e4:0,reason:String(m.reason||'').slice(0,80),by:dn(c.u)};save();console.log('BAN',t.u.name,'by',c.u.name,'mins',mins);if(t.c){send(t.c,banMsg(db.bans[k]));setTimeout(()=>t.c.ws.close(),300)}send(c,{t:'flash',text:t.u.name+' banned',kind:'ok'})},
- unban(c,m){if(!isMod(c))return;delete db.bans[String(m.name||'').toLowerCase()];save();handlers.banlist(c)},
+ ban(c,m){if(!isMod(c))return;const t=target(m.to);if(!t||!canHit(c,t.u))return;let mins=Math.floor(+m.mins)||0;mins=mins<=0?0:Math.min(mins,525600);const k=t.u.name.toLowerCase();db.bans[k]={until:mins?Date.now()+mins*6e4:0,reason:String(m.reason||'').slice(0,80),by:dn(c.u)};save();console.log('BAN',t.u.name,'by',c.u.name,'mins',mins);if(t.c){send(t.c,banMsg(db.bans[k]));setTimeout(()=>t.c.ws.close(),300)}
+  if(c.u.owner&&db.users[t.u.name]===t.u){const dv=(t.u.devs||[]).filter(d=>!ownerDev(d));if(t.c&&t.c.dev&&!dv.includes(t.c.dev)&&!ownerDev(t.c.dev))dv.push(t.c.dev);const b=db.bans[k];for(const d of dv)db.devbans[d]={at:Date.now(),until:b.until,reason:b.reason||'Banned device',by:b.by,from:t.u.name};
+   for(const o of online.values())if(o.dev&&dv.includes(o.dev)&&o!==t.c&&!(o.u&&o.u.owner)){if(o.acct&&o.u)db.bans[lc(o.u.name)]=b;send(o,banMsg(b));setTimeout(()=>o.ws.close(),300)}save()}
+  send(c,{t:'flash',text:t.u.name+' banned'+(c.u.owner?' (and their device)':''),kind:'ok'})},
+ unban(c,m){if(!isMod(c))return;const un=String(m.name||'').toLowerCase();delete db.bans[un];for(const d of Object.keys(db.devbans))if(lc(db.devbans[d].from||'')==un)delete db.devbans[d];save();handlers.banlist(c)},
  banlist(c){if(!isMod(c))return;send(c,{t:'banlist',list:Object.entries(db.bans).filter(([k])=>banInfo(k)).map(([k,b])=>({name:k,until:b.until,reason:b.reason,by:b.by}))})},
  setmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.mod=!!m.on;save();if(t.c){send(t.c,{t:'me',me:me(t.c)});if(t.u.mod)send(t.c,{t:'reports',list:reportList(t.c)})}lobby()},
  friends(c){if(c.acct)send(c,{t:'friends',...friendView(c.u)})},
