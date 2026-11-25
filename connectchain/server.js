@@ -71,9 +71,9 @@ function wk(d){const t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-(t.g
 function roll(u){const d=ymd(),w=wk(d),m=d.slice(0,7),g=u.g=u.g||{d,dx:0,w,wx:0,m,mx:0};if(g.d!==d){g.d=d;g.dx=0}if(g.w!==w){g.w=w;g.wx=0}if(g.m!==m){g.m=m;g.mx=0}return g}
 const gain=(u,n)=>{if(!n||u.owner||db.users[u.name]!==u)return;const g=roll(u);g.dx=Math.max(0,g.dx+n);g.wx=Math.max(0,g.wx+n);g.mx=Math.max(0,g.mx+n);qXp(u)};
 const LBF={day:u=>u.owner?0:roll(u).dx,week:u=>u.owner?0:roll(u).wx,month:u=>u.owner?0:roll(u).mx,all:u=>u.owner?0:u.xp,time:u=>u.secs||0};
-function rankOf(u){const us=Object.values(db.users),r={};for(const k in LBF){const v=LBF[k](u);r[k]={v:Math.round(v),rank:v>0?us.filter(x=>LBF[k](x)>v).length+1:0}}return r}
-function friendLb(u){const us=[u,...(u.friends||[]).map(n=>db.users[n]).filter(Boolean)],o={};for(const k in LBF)o[k]=us.map(x=>({...pub(x),v:Math.round(LBF[k](x))})).sort((a,b)=>b.v-a.v);return o}
-function lbData(){const us=Object.values(db.users),top=f=>us.map(u=>({u,v:f(u)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...pub(x.u),v:Math.round(x.v)}));
+function rankOf(u){const us=Object.values(db.users).filter(x=>!banInfo(x.name)),r={};for(const k in LBF){const v=LBF[k](u);r[k]={v:Math.round(v),rank:v>0?us.filter(x=>LBF[k](x)>v).length+1:0}}return r}
+function friendLb(u){const us=[u,...(u.friends||[]).map(n=>db.users[n]).filter(x=>x&&!banInfo(x.name))],o={};for(const k in LBF)o[k]=us.map(x=>({...pub(x),v:Math.round(LBF[k](x))})).sort((a,b)=>b.v-a.v);return o}
+function lbData(){const us=Object.values(db.users).filter(x=>!banInfo(x.name)),top=f=>us.map(u=>({u,v:f(u)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...pub(x.u),v:Math.round(x.v)}));
  return{day:top(u=>u.owner?0:roll(u).dx),week:top(u=>u.owner?0:roll(u).wx),month:top(u=>u.owner?0:roll(u).mx),all:top(u=>u.owner?0:u.xp),time:top(u=>u.secs||0)}}
 let tk=0;setInterval(()=>{const now=Date.now();let ch=false;for(const c of online.values()){if(!c.lastAct)c.lastAct=now;
  if(!c.inact&&((c.hiddenSince&&now-c.hiddenSince>HID)||(now-c.lastAct>IDLE&&!c.bt&&!c.watch))){c.inact=true;ch=true}
@@ -170,7 +170,7 @@ const pushQuests=()=>{for(const x of online.values())if(x.u){x.qAt=0;send(x,qVie
 const CLANMAX=5,clanKey=n=>lc(n),RESERVED=/^(owner|admin|mod|staff|system)$/i;
 const clanOf=u=>u&&u.clan&&db.clans[u.clan]||null,clanTagOf=u=>{const c=clanOf(u);return c?c.name:''};
 const clanMembers=c=>c.members.map(n=>db.users[n]).filter(Boolean);
-const clanTotal=(c,k)=>clanMembers(c).reduce((a,u)=>a+Math.max(0,LBF[k||'all'](u)),0);
+const clanTotal=(c,k)=>clanMembers(c).reduce((a,u)=>a+(banInfo(u.name)?0:Math.max(0,LBF[k||'all'](u))),0);
 function clanView(c,viewer){const vu=viewer&&viewer.u,key=clanKey(c.name),mine=!!(vu&&vu.clan==key),isL=mine&&lc(vu.name)==lc(c.leader);
  return{t:'clanview',name:c.name,leader:c.leader,leaderDn:dn(db.users[c.leader]||{name:c.leader}),max:CLANMAX,total:Math.round(clanTotal(c)),
   members:clanMembers(c).map(u=>({...pub(u),v:Math.round(u.owner?0:u.xp||0),lead:lc(u.name)==lc(c.leader)})).sort((a,b)=>b.lead-a.lead||b.v-a.v),
