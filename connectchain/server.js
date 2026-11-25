@@ -625,14 +625,24 @@ const handlers={
  ownertag(c,m){if(!c.u?.owner||!c.acct)return;const h=/^#[0-9a-f]{6}$/i;if(h.test(m.c1)&&h.test(m.c2)){db.ownerTag={c1:m.c1,c2:m.c2};save();lobby()}}};
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon','.mp3':'audio/mpeg'};
 const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation-on-black-background-isolated-transparent-alpha-png.webp','pixil-frame-0.png','coinconnect.png'];
-const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
+/* ---- domain lock + proxy blocker ---- */
+const ALLOWED_HOSTS=(process.env.ALLOWED_HOSTS||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean),PROXY_BLOCK=process.env.PROXY_BLOCK!=='0';
+const hostOf=h=>String(h||'').toLowerCase().replace(/^https?:\/\//,'').split('/')[0].replace(/:\d+$/,'');
+const hostOk=(req)=>{if(!ALLOWED_HOSTS.length)return true;if(!ALLOWED_HOSTS.includes(hostOf(req.headers.host)))return false;const o=req.headers.origin;return !o||ALLOWED_HOSTS.includes(hostOf(o))};
+const ipRisk=new Map();
+const privIP=ip=>!ip||/^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|fc|fd|fe80)/i.test(ip)||ip==='::ffff:127.0.0.1';
+async function isProxy(ip){ip=String(ip||'').replace(/^::ffff:/,'').trim();if(!PROXY_BLOCK||privIP(ip))return false;const h=ipRisk.get(ip);if(h&&Date.now()-h.at<6*36e5)return h.v;
+ try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),3500);const r=await fetch('http://ip-api.com/json/'+encodeURIComponent(ip)+'?fields=status,proxy,hosting',{signal:ctl.signal});clearTimeout(tm);const j=await r.json();if(j.status!=='success')return false;const v=!!(j.proxy||j.hosting);ipRisk.set(ip,{v,at:Date.now()});if(ipRisk.size>5000)ipRisk.delete(ipRisk.keys().next().value);return v}catch(e){return false}}
+const ownerIp=ip=>Object.values(db.users).some(u=>u.owner&&(u.ips||[]).includes(ip));
+const srv=http.createServer((q,r)=>{if(!hostOk(q)){r.writeHead(403,{'Content-Type':'text/plain'});return r.end('Use the official website link to play.')}let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
  const rel=u=='/'?'index.html':path.normalize(u).replace(/^(\.\.[\/\\])+/,'');
  const nf=()=>{r.writeHead(404);r.end('Not found')};
  const tryRead=(f,next)=>fs.readFile(f,(e,d)=>{if(e)return next();r.writeHead(200,{'Content-Type':types[path.extname(f)]||'text/plain'});r.end(d)});
  tryRead(path.join(__dirname,'public',rel),()=>{const b=path.basename(rel);if(ASSETS.includes(b))tryRead(path.join(__dirname,b),nf);else nf()})});
-new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
+new WebSocketServer({server:srv,verifyClient:(i,cb)=>hostOk(i.req)?cb(true):cb(false,403,'Forbidden')}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
  const c={ws,ip,u:null};if(bans[ip]>Date.now()){send(c,{t:'banned'});return ws.close()}
- ws.on('message',d=>{{const n=Date.now();if(n-(c.fw||0)>1000){c.fw=n;c.fc=0}if(++c.fc>40){if(c.fc>200){send(c,{t:'banned'});return ws.close()}return}}if(d.length>20000)return;let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
+ isProxy(ip).then(v=>{if(v&&!ownerIp(ip)&&!ownerIp(String(ip).replace(/^::ffff:/,''))){c.px=true;send(c,{t:'banned',proxy:true});setTimeout(()=>ws.close(),300)}});
+ ws.on('message',d=>{{const n=Date.now();if(n-(c.fw||0)>1000){c.fw=n;c.fc=0}if(++c.fc>40){if(c.fc>200){send(c,{t:'banned'});return ws.close()}return}}if(d.length>20000)return;let m;try{m=JSON.parse(d)}catch{return}if(c.px)return;if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
  db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.devbans=db.devbans||{};db.clans=db.clans||{};db.calendar=db.calendar||[];db.quests=db.quests||[];db.questSeq=db.questSeq||0;db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
