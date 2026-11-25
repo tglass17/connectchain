@@ -26,7 +26,8 @@ const me=c=>({...pub(c.u),bal:c.u.bal,mult:c.u.mult,account:!!c.acct,lim:c.u.lim
 function lobby(){const l=[...online.values()].map(c=>({...pub(c.u),busy:!!c.bt,away:!!c.inact,endless:!!c.end,party:!!c.plob,acct:!!c.acct}));for(const c of online.values())send(c,{t:'lobby',list:l,ownerTag:db.ownerTag})}
 const addXp=(c,n)=>{if(!c.u.owner){c.u.xp+=n;c.u.bal+=n;gain(c.u,n)}if(c.acct)save();send(c,{t:'me',me:me(c)})};
 const flash=(c,text,kind)=>send(c,{t:'flash',text,kind});
-function login(c,u,acct){if(c.u)logout(c);c.u=u;if(acct)track(c,u);c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,limMsg());send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
+const fixColor=u=>{if(u&&!u.owner&&typeof u.color==='string'&&hasLim(u.color)&&!(u.lim||[]).includes(u.color))u.color='white'};
+function login(c,u,acct){if(c.u)logout(c);c.u=u;fixColor(u);if(acct)track(c,u);c.acct=acct;c.lastAct=Date.now();c.inact=false;c.hiddenSince=0;online.set(u.name.toLowerCase(),c);send(c,limMsg());send(c,{t:'me',me:me(c),colors:COLORS,shop:SHOP});lobby();if(poll&&!poll.done)sendPoll(c);onLogin(c)}
 function logout(c){if(c.u&&c.acct)c.u.seen=Date.now();if(c.end)finishEnd(c,false);if(c.party)ptLeave(c);c.plob=false;if(c.watch){c.watch.spec.delete(c);c.watch=null}if(c.pend){clearTimeout(c.pend.tm);c.pend=null}if(c.u)online.delete(c.u.name.toLowerCase());end(c,false);c.u=null;lobby()}
 const cache=new Map();
 async function dm(q,max){const k=q+max;if(cache.has(k))return cache.get(k);try{const r=await fetch('https://api.datamuse.com/words?max='+max+'&'+q);const j=(await r.json()).map(x=>x.word);cache.set(k,j);return j}catch{return[]}}
@@ -182,7 +183,7 @@ function clanDrop(u){if(u.creq){const c0=db.clans[u.creq];if(c0)c0.req=c0.req.fi
  if(!c.members.length){clanDisband(c);return null}if(lc(c.leader)==lc(u.name))c.leader=c.members[0];return c}
 function clanBoards(){const cs=Object.values(db.clans),o={};for(const k in LBF)o[k]=cs.map(c=>({name:c.name,n:c.members.length,v:Math.round(clanTotal(c,k))})).sort((a,b)=>b.v-a.v||a.name.localeCompare(b.name)).slice(0,50);return o}
 /* ---- device tracking, linked bans, account manager ---- */
-const MAXACC=3;
+const MAXACC=3,RAFFLE_AGE=10*60000;
 const DEVRE=/^[a-f0-9]{16,48}$/;
 function track(c,u){if(db.users[u.name]!==u)return;u.seen=Date.now();if(c.dev){u.devs=u.devs||[];if(!u.devs.includes(c.dev)){u.devs.push(c.dev);if(u.devs.length>12)u.devs.shift()}}
  if(c.ip){u.ips=u.ips||[];if(!u.ips.includes(c.ip)){u.ips.push(c.ip);if(u.ips.length>12)u.ips.shift()}}}
@@ -203,7 +204,7 @@ function devGate(c,n){const d=c.dev&&db.devbans[c.dev];if(!d)return false;if(d.u
 function acctRow(u){return{name:u.name,dn:dn(u),xp:u.xp||0,online:!!find(u.name),seen:u.seen||0,banned:!!banInfo(u.name),mod:!!u.mod,owner:!!u.owner}}
 function acctDetail(u){const lk=linkedOf(u),ips=(u.ips||[]).map(ip=>({ip,shared:Object.values(db.users).filter(x=>x!==u&&(x.ips||[]).includes(ip)).map(x=>x.name).slice(0,10)})),
  devs=(u.devs||[]).map(d=>({id:d.slice(0,8),banned:!!db.devbans[d],owner:ownerDev(d),shared:Object.values(db.users).filter(x=>x!==u&&(x.devs||[]).includes(d)).map(x=>x.name).slice(0,10)}));
- const b=banInfo(u.name);return{...acctRow(u),clan:clanTagOf(u),bal:u.bal||0,mult:u.mult||1,color:u.color,tag:u.tag||'',alpha:!!u.alpha,codes:!!u.codes,secs:u.secs||0,born:u.born||0,friends:(u.friends||[]).length,
+ const b=banInfo(u.name);return{...acctRow(u),clan:clanTagOf(u),bal:u.bal||0,mult:u.mult||1,color:u.color,lim:(u.lim||[]).filter(hasLim).map(id=>({id,name:db.limcolors[id].name})),tag:u.tag||'',alpha:!!u.alpha,codes:!!u.codes,secs:u.secs||0,born:u.born||0,friends:(u.friends||[]).length,
   ban:b?{until:b.until,reason:b.reason,by:b.by}:null,devs,ips,linked:lk.users.filter(x=>x!==u).map(x=>({name:x.name,banned:!!banInfo(x.name)}))}}
 const banInfo=n=>{const k=String(n||'').toLowerCase(),b=db.bans[k];if(!b)return null;if(b.until&&b.until<Date.now()){delete db.bans[k];save();return null}return b};
 const banMsg=b=>({t:'banned',manual:true,reason:b.reason||'',until:b.until||0});
@@ -289,8 +290,8 @@ const pushRafflesNow=()=>{clearTimeout(rpT);rpT=0;for(const x of online.values()
 const pushRaffles=()=>{if(!rpT)rpT=setTimeout(()=>{rpT=0;for(const x of online.values())sendRaffles(x)},300)};
 function drawRaffle(id){const r=db.raffles.find(x=>x.id===id);if(!r||r.done)return;if(Date.now()<r.endsAt-100)return schedR(r);
  r.done=true;r.doneAt=Date.now();rtim.delete(r.id);
- const pool=r.entries.filter(n=>db.users[n]&&!db.users[n].owner),win=[];
- while(win.length<r.winners&&pool.length)win.push(pool.splice(crypto.randomInt(pool.length),1)[0]);
+ let pool=r.entries.filter(n=>db.users[n]&&!db.users[n].owner&&!banInfo(n)),win=[];
+ while(win.length<r.winners&&pool.length){const w=pool.splice(crypto.randomInt(pool.length),1)[0];win.push(w);const lk=new Set(linkedOf(db.users[w]).users.map(x=>x.name));pool=pool.filter(n=>!lk.has(n))}
  r.win=win;
  for(const n of win){giveReward(n,r.reward);inboxAdd(n,true,{kind:'raffle',text:'🎉 You won the raffle'+(r.title?' "'+r.title+'"':'')+'! Prize: '+rwText(r.reward)})}
  save();
@@ -388,6 +389,10 @@ const handlers={
  raffleenter(c,m){if(!c.acct)return flash(c,'Sign up for an account to enter raffles','bad');if(c.u.owner)return flash(c,'The owner cannot enter raffles','warn');
   const r=db.raffles.find(x=>x.id===m.id);if(!r||r.done||Date.now()>=r.endsAt)return flash(c,'This raffle has ended','warn');
   if(r.entries.includes(c.u.name))return flash(c,'You already entered!','warn');
+  if(banInfo(c.u.name))return;if(!c.dev)return flash(c,'Refresh the page, then try entering again','warn');
+  if(c.u.born&&Date.now()-c.u.born<RAFFLE_AGE)return flash(c,'New accounts must be at least 10 minutes old to enter raffles','warn');
+  {const lk=new Set(linkedOf(c.u).users.map(x=>x.name));if(r.entries.some(n=>n!==c.u.name&&lk.has(n)))return flash(c,'Another account on your device already entered this raffle','warn');
+   r.eips=r.eips||{};if(c.ip&&(r.eips[c.ip]||0)>=2)return flash(c,'Too many entries from your network','warn');if(c.ip)r.eips[c.ip]=(r.eips[c.ip]||0)+1}
   r.entries.push(c.u.name);save();flash(c,'🎟️ You are in the raffle! Good luck!','ok');qProg(c,'raffle');pushRaffles()},
  raffledel(c,m){if(!c.u?.owner||!c.acct)return;const i=db.raffles.findIndex(x=>x.id===m.id);if(i<0)return;const r=db.raffles[i];clearTimeout(rtim.get(r.id));rtim.delete(r.id);db.raffles.splice(i,1);save();pushRafflesNow()},
  plobby(c,m){if(m.on){if(c.bt||c.end)return flash(c,'Finish what you are doing first','warn');
@@ -450,13 +455,13 @@ const handlers={
  questsave(c,m){if(!canQ(c))return;const type=String(m.type||'');if(!QT[type])return flash(c,'Pick a quest type','bad');
   const target=Math.min(type==='xp'?100000:100,Math.max(1,Math.floor(+m.target)||1)),title=String(m.title||'').trim().slice(0,60);if(title&&filter.check(title))return flash(c,'That title is not allowed','bad');
   const r=rwNorm(m.reward);if(!r)return flash(c,'Pick a reward (XP, a limited color or a multiplier)','bad');
-  if(!c.u.owner){if(r.mult)return flash(c,'Only the owner can give XP multipliers','bad');if(r.xp>5000)return flash(c,'Quest mods can give up to 5,000 XP per quest','bad')}
+  if(!c.u.owner){if(r.mult)return flash(c,'Only the owner can give XP multipliers','bad');if(r.color)return flash(c,'Only the owner can give limited colors','bad');if(r.xp>5000)return flash(c,'Quest mods can give up to 5,000 XP per quest','bad')}
   const cur=m.id!=null?db.quests.find(q=>q.id===m.id):null;if(m.id!=null&&!cur)return flash(c,'Quest not found','bad');const on=m.on!==false;
   if(cur)Object.assign(cur,{type,target,title,reward:r,on,edited:dn(c.u)});else{if(db.quests.length>=15)return flash(c,'Max 15 quests. Delete one first.','bad');db.quests.push({id:++db.questSeq,type,target,title,reward:r,on,by:dn(c.u),byu:c.u.name,at:Date.now()})}
   save();flash(c,cur?'Quest updated':'Quest added','ok');pushQuests()},
  questdel(c,m){if(!canQ(c))return;const i=db.quests.findIndex(q=>q.id===m.id);if(i<0)return;db.quests.splice(i,1);save();flash(c,'Quest deleted','ok');pushQuests()},
  questclaim(c,m){if(!c.acct||c.u.owner)return;const q=db.quests.find(x=>x.id===m.id&&x.on);if(!q)return;if(qMine(c.u,q))return flash(c,"You can't claim a quest you made",'bad');const d=qDay(c.u);if(d.c.includes(q.id))return flash(c,'Already claimed today','warn');if(qDone(c.u,q)<q.target)return flash(c,'Quest not finished yet','warn');
-  d.c.push(q.id);qLogDone(c.u,q);db.qlog[ymd()][q.id][c.u.name].claimed=Date.now();giveReward(c.u.name,q.reward);save();flash(c,'🎁 Quest reward: '+rwText(q.reward),'ok');qSend(c)},
+  d.c.push(q.id);qLogDone(c.u,q);db.qlog[ymd()][q.id][c.u.name].claimed=Date.now();{const ow=db.users[q.byu||''],rw=ow&&ow.owner?q.reward:{xp:Math.min(5000,q.reward.xp||0),color:'',mult:0};giveReward(c.u.name,rw)}save();flash(c,'🎁 Quest reward: '+rwText(q.reward),'ok');qSend(c)},
  setqmod(c,m){if(!c.u?.owner||!c.acct)return;const t=target(m.to);if(!t||t.u.owner||db.users[t.u.name]!==t.u)return;t.u.qmod=!!m.on;save();flash(c,dn(t.u)+(t.u.qmod?' can now moderate Daily Quests':' is no longer a quest moderator'),'ok');const x=find(t.u.name);if(x&&x.u===t.u){send(x,{t:'me',me:me(x)});if(t.u.qmod)flash(x,'You can now moderate Daily Quests!','ok');qSend(x)}},
  logs(c){if(c.u)send(c,{t:'logs',list:c.u.log||[],acct:!!c.acct})},
  questwho(c,m){if(!canQ(c))return;const q=db.quests.find(x=>x.id===m.id);if(!q)return;const ql=db.qlog||{},today=ymd(),day=ql[m.day]?String(m.day):today,ent=((ql[day]||{})[q.id])||{};
@@ -472,6 +477,7 @@ const handlers={
   const names=lk.users.map(x=>x.name);for(const x of lk.users){if(term)terminateAcct(x,reason,dn(c.u));else banAcct(x,reason,dn(c.u),mins)}
   for(const o of online.values())if(o.dev&&lk.devs.includes(o.dev)&&!(o.u&&o.u.owner)){send(o,banMsg({until,reason}));setTimeout(()=>o.ws.close(),300)}
   save();console.log('BANLINKED',names.join(','),'devices',lk.devs.length,'terminate',term);flash(c,(term?'Terminated ':'Banned ')+names.length+' account(s) and blocked '+lk.devs.length+' device(s)','ok');send(c,{t:'acctdone',name:u.name})},
+ limrevoke(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u||u.owner)return flash(c,'Account not found','bad');const id=String(m.id||'');u.lim=(u.lim||[]).filter(x=>x!==id);if(u.color===id)u.color='white';save();const o=find(u.name);if(o&&o.u===u){send(o,{t:'me',me:me(o)});lobby()}flash(c,'Removed '+(hasLim(id)?db.limcolors[id].name:id)+' from '+u.name,'ok')},
  unbanlinked(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u)return flash(c,'Account not found (terminated accounts are deleted)','bad');
   const lk=linkedOf(u);for(const d of new Set([...lk.devs,...(u.devs||[])]))delete db.devbans[d];for(const x of lk.users)delete db.bans[lc(x.name)];save();flash(c,'Unbanned '+lk.users.length+' account(s) and cleared their devices','ok');send(c,{t:'acctdone',name:u.name})},
  acctterminate(c,m){if(!c.u?.owner||!c.acct)return;const k=acctName(m.to),u=k&&db.users[k];if(!u||u.owner)return flash(c,'Account not found','bad');
@@ -626,8 +632,8 @@ const srv=http.createServer((q,r)=>{let u='/';try{u=decodeURIComponent(q.url.spl
  tryRead(path.join(__dirname,'public',rel),()=>{const b=path.basename(rel);if(ASSETS.includes(b))tryRead(path.join(__dirname,b),nf);else nf()})});
 new WebSocketServer({server:srv}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
  const c={ws,ip,u:null};if(bans[ip]>Date.now()){send(c,{t:'banned'});return ws.close()}
- ws.on('message',d=>{let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
+ ws.on('message',d=>{{const n=Date.now();if(n-(c.fw||0)>1000){c.fw=n;c.fc=0}if(++c.fc>40){if(c.fc>200){send(c,{t:'banned'});return ws.close()}return}}if(d.length>20000)return;let m;try{m=JSON.parse(d)}catch{return}if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
  ws.on('close',()=>{if(c.u)logout(c)})});
 (async()=>{if(RURL){try{const r=await rcmd(['GET','connectchain']);if(r.result)db=JSON.parse(r.result);console.log('Loaded saved data from Upstash')}catch(e){console.log('Upstash load failed, exiting so saved data is not overwritten:',e.message);process.exit(1)}}
  db.users=db.users||{};db.tokens=db.tokens||{};db.tags=db.tags||{};db.bans=db.bans||{};db.devbans=db.devbans||{};db.clans=db.clans||{};db.calendar=db.calendar||[];db.quests=db.quests||[];db.questSeq=db.questSeq||0;db.modreqs=db.modreqs||[];db.ideas=db.ideas||[];db.rooms=db.rooms||{};db.reports=db.reports||[];db.codes=db.codes||{};db.limcolors=db.limcolors||{};db.raffles=db.raffles||[];db.ownerTag=db.ownerTag||{c1:'#ff0080',c2:'#00d4ff'};
- limSeed();db.raffles.forEach(r=>{if(!r.done)schedR(r)});ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
+ limSeed();Object.values(db.users).forEach(fixColor);db.raffles.forEach(r=>{if(!r.done)schedR(r)});ensureOwner();srv.listen(PORT,()=>console.log('ConnectChain on '+PORT))})();
