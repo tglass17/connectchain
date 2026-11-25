@@ -389,6 +389,7 @@ function on(m){
  if(m.t=='rafflewin')rfReveal(m)
  if(m.t=='nobattle'){live=false;myTurn=false;$('alife').innerHTML='';$('word').disabled=true;$('ov').style.display='none';back();toast('That match is no longer running','warn')}
  if(m.t=='over'){live=false;$('alife').innerHTML='';$('word').disabled=true;$('turn').textContent=m.win?'🎉 You win! +100 XP':'You lost. Try again!';$('back').style.display=''}
+ if(m.t=='banned'&&m.proxy){isBanned=true;document.body.innerHTML='<h1 style="padding:40px">⛔ Proxies and VPNs are not allowed.<br><small>Turn yours off and reload the page to play.</small></h1>';return}
  if(m.t=='banned'){isBanned=true;document.body.innerHTML=`<h1 style="padding:40px">⛔ You are banned${m.manual?(m.until?' until '+new Date(m.until).toLocaleString():' permanently'):' for 10 minutes for using bad words'}.${m.reason?'<br>Reason: '+esc(m.reason):''}</h1>`}}
 function sub(){if(!live)return;if(!myTurn)return toast("Wait for your turn!",'warn');send({t:'submit',word:$('word').value});$('word').value='';send({t:'typing',text:''})}
 $('word').oninput=e=>send({t:'typing',text:e.target.value});$('word').onkeydown=e=>{if(e.key=='Enter')sub()};
