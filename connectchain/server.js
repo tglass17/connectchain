@@ -626,7 +626,7 @@ const handlers={
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon','.mp3':'audio/mpeg'};
 const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation-on-black-background-isolated-transparent-alpha-png.webp','pixil-frame-0.png','coinconnect.png'];
 /* ---- domain lock + proxy blocker ---- */
-const ALLOWED_HOSTS=(process.env.ALLOWED_HOSTS||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean),PROXY_BLOCK=process.env.PROXY_BLOCK!=='0';
+const ALLOWED_HOSTS=(process.env.ALLOWED_HOSTS||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean),PROXY_BLOCK=process.env.PROXY_BLOCK==='1';
 const hostOf=h=>String(h||'').toLowerCase().replace(/^https?:\/\//,'').split('/')[0].replace(/:\d+$/,'');
 const hostOk=(req,ws)=>{if(!ALLOWED_HOSTS.length)return true;if(!ALLOWED_HOSTS.includes(hostOf(req.headers.host)))return false;const o=req.headers.origin;return o?ALLOWED_HOSTS.includes(hostOf(o)):!ws};
 const ipRisk=new Map();
