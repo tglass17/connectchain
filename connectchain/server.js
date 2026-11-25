@@ -39,7 +39,7 @@ const SYS='You judge a word-association game. Answer only YES or NO. YES if the 
 async function ai(a,b){const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':KEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:5,system:SYS,messages:[{role:'user',content:'First word: '+a+'\nSecond word: '+b}]})});
  const j=await r.json(),t=j.content&&j.content[0]&&j.content[0].text;if(!t)throw new Error('no answer');return /^\s*yes/i.test(t)}
 const STOPW=new Set('a an the and or but nor so yet if as to of in on at by for from with into onto up down out off over under it its is am are was were be been being do does did has have had will would can could shall should may might must not no yes i me my we us our you your he him his she her they them their this that these those there here what which who whom whose when where why how than then too very just also about after again all any because before both each few more most other some such only own same while until through during above below between against once am im ive id ill dont isnt arent wasnt cant wont ok oh uh um eh'.split(' '));
-const bad1=w=>{w=String(w||'').toLowerCase().trim();return w.length<2||STOPW.has(w)};
+const bad1=w=>{w=String(w||'').toLowerCase().trim();return w.length<3||STOPW.has(w)};
 async function rel(a,b){if(bad1(b)||bad1(a))return false;if(KEY){const k=a+'|'+b;if(aiCache.has(k))return aiCache.get(k);try{const v=await ai(a,b);aiCache.set(k,v);return v}catch(e){console.log('AI check failed, using word list',e.message)}}return relOld(a,b)}
 function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,t0:Date.now(),hist:[],spec:new Set()};[a,b].forEach(x=>{if(x.watch){x.watch.spec.delete(x);x.watch=null}});a.bt=b.bt=bt;
  bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
@@ -55,7 +55,7 @@ function end(c,won){const bt=c.bt;if(!bt)return;clearTimeout(bt.itm);clearTimeou
 function strike(c){c.strikes=(c.strikes||0)+1;if(c.strikes>=3){bans[c.ip]=Date.now()+6e5;send(c,{t:'banned'});c.ws.close()}
  else flash(c,c.strikes==2?'⚠ FINAL WARNING: keep it up and you will be banned.':'⚠ Warning: that word is not allowed.','warn')}
 async function submit(c,w){const bt=c.bt;if(!bt||!bt.live||bt.p[bt.turn]!==c||bt.busy)return;
- w=String(w).toLowerCase().trim();if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only');
+ w=String(w).toLowerCase().trim();if(!/^[a-z]{3,20}$/.test(w))return flash(c,/^[a-z]{1,2}$/.test(w)?'Words must be at least 3 letters long':'One word, letters only');
  if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
  bt.busy=true;const ok=!bt.chain.includes(w)&&await rel(bt.chain.at(-1),w);bt.busy=false;if(!c.bt)return;
  const i=bt.p.indexOf(c);
@@ -249,7 +249,7 @@ function ptLeave(c){const p=c.party;if(!p)return;c.party=null;const i=p.m.findIn
   p.m.splice(i,1);if(!p.m.length)return ptDelete(p);if(p.host===x)p.host=p.m[0];ptPush(p)}
  ptSendList()}
 async function ptSubmit(c,w){const p=c.party;if(!p||p.state!=='playing')return;const cur=p.m[p.turn];if(!cur||cur.c!==c||cur.busy)return;
- w=String(w).toLowerCase().trim();if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only');
+ w=String(w).toLowerCase().trim();if(!/^[a-z]{3,20}$/.test(w))return flash(c,/^[a-z]{1,2}$/.test(w)?'Words must be at least 3 letters long':'One word, letters only');
  if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
  const tok=p.tok;cur.busy=true;let ok=false;try{ok=!p.chain.includes(w)&&await rel(p.chain.at(-1),w)}finally{cur.busy=false}
  if(p.state!=='playing'||p.tok!==tok||p.m[p.turn]!==cur||c.party!==p)return;
@@ -550,7 +550,7 @@ const handlers={
  signout(c,m){if(m.tk&&c.u&&db.tokens[m.tk]===c.u.name){delete db.tokens[m.tk];save()}logout(c);send(c,{t:'loggedout'})},
  endstart(c){if(c.bt||c.watch||c.end||c.plob)return;if(c.pend){clearTimeout(c.pend.tm);c.pend=null}c.end={chain:[startWord()],xp:0,words:0,streak:0,best:0,turn:'you',busy:false};esend(c,'Go! Say a word that connects.');lobby()},
  async endsubmit(c,m){const e=c.end;if(!e||e.turn!=='you'||e.busy)return;const w=String(m.word||'').toLowerCase().trim();
-  if(!/^[a-z]{2,20}$/.test(w))return flash(c,'One word, letters only','bad');
+  if(!/^[a-z]{3,20}$/.test(w))return flash(c,/^[a-z]{1,2}$/.test(w)?'Words must be at least 3 letters long':'One word, letters only','bad');
   if(filter.check(w)){flash(c,'That word does not count.','bad');return strike(c)}
   if(e.xp>=ENDCAP)return flash(c,'You hit the XP cap for this run. Press Stop to collect!','warn');
   e.busy=true;const ok=!e.chain.includes(w)&&await rel(e.chain.at(-1),w);e.busy=false;if(c.end!==e)return;
