@@ -632,9 +632,10 @@ const hostOk=(req,ws)=>{if(!ALLOWED_HOSTS.length)return true;if(!ALLOWED_HOSTS.i
 const ipRisk=new Map();
 const privIP=ip=>!ip||/^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|fc|fd|fe80)/i.test(ip)||ip==='::ffff:127.0.0.1';
 async function isProxy(ip){ip=String(ip||'').replace(/^::ffff:/,'').trim();if(!PROXY_BLOCK||privIP(ip))return false;const h=ipRisk.get(ip);if(h&&Date.now()-h.at<6*36e5)return h.v;
- try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),3500);const r=await fetch('http://ip-api.com/json/'+encodeURIComponent(ip)+'?fields=status,proxy,hosting',{signal:ctl.signal});clearTimeout(tm);const j=await r.json();if(j.status!=='success')return false;const v=!!(j.proxy||j.hosting);ipRisk.set(ip,{v,at:Date.now()});if(ipRisk.size>5000)ipRisk.delete(ipRisk.keys().next().value);return v}catch(e){return false}}
+ try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),3500);const r=await fetch('http://ip-api.com/json/'+encodeURIComponent(ip)+'?fields=status,proxy,hosting',{signal:ctl.signal});clearTimeout(tm);const j=await r.json();if(j.status!=='success')return false;const v=!!j.proxy;ipRisk.set(ip,{v,at:Date.now()});if(ipRisk.size>5000)ipRisk.delete(ipRisk.keys().next().value);return v}catch(e){return false}}
 const PAGE_BIND=process.env.PAGE_BIND!=='0',cleanIp=ip=>String(ip||'').replace(/^::ffff:/,'').trim();
-const pbSig=(ip,ts)=>crypto.createHmac('sha256',db.pbs||'x').update(cleanIp(ip)+'|'+ts).digest('hex').slice(0,32);
+const netOf=ip=>{ip=cleanIp(ip);return ip.includes(':')?ip.split(':').slice(0,4).join(':'):ip.split('.').slice(0,3).join('.')};
+const pbSig=(ip,ts)=>crypto.createHmac('sha256',db.pbs||'x').update(netOf(ip)+'|'+ts).digest('hex').slice(0,32);
 const pbMake=ip=>{const ts=Date.now();return ts+'.'+pbSig(ip,ts)};
 const pbOk=(ip,t)=>{if(!PAGE_BIND)return true;const [ts,sg]=String(t||'').split('.');if(!/^\d{13}$/.test(ts||'')||!sg||Date.now()-+ts>864e5||+ts>Date.now()+6e4)return false;const e=pbSig(ip,ts);return sg.length===e.length&&crypto.timingSafeEqual(Buffer.from(sg),Buffer.from(e))};
 const ownerIp=ip=>Object.values(db.users).some(u=>u.owner&&(u.ips||[]).includes(ip));
