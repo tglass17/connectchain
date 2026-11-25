@@ -633,7 +633,7 @@ const ipRisk=new Map();
 const privIP=ip=>!ip||/^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|fc|fd|fe80)/i.test(ip)||ip==='::ffff:127.0.0.1';
 async function isProxy(ip){ip=String(ip||'').replace(/^::ffff:/,'').trim();if(!PROXY_BLOCK||privIP(ip))return false;const h=ipRisk.get(ip);if(h&&Date.now()-h.at<6*36e5)return h.v;
  try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),3500);const r=await fetch('http://ip-api.com/json/'+encodeURIComponent(ip)+'?fields=status,proxy,hosting',{signal:ctl.signal});clearTimeout(tm);const j=await r.json();if(j.status!=='success')return false;const v=!!j.proxy;ipRisk.set(ip,{v,at:Date.now()});if(ipRisk.size>5000)ipRisk.delete(ipRisk.keys().next().value);return v}catch(e){return false}}
-const PAGE_BIND=process.env.PAGE_BIND!=='0',cleanIp=ip=>String(ip||'').replace(/^::ffff:/,'').trim();
+const PAGE_BIND=process.env.PAGE_BIND==='1'||process.env.PAGE_BIND==='strict',cleanIp=ip=>String(ip||'').replace(/^::ffff:/,'').trim();
 const netOf=ip=>{ip=cleanIp(ip);return ip.includes(':')?ip.split(':').slice(0,4).join(':'):ip.split('.').slice(0,3).join('.')};
 const PB_STRICT=process.env.PAGE_BIND==='strict';
 const pbSig=(ip,ts)=>crypto.createHmac('sha256',db.pbs||'x').update((PB_STRICT?netOf(ip):'any')+'|'+ts).digest('hex').slice(0,32);
