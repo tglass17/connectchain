@@ -628,18 +628,21 @@ const ASSETS=['projectile.png','projectexplosion.gif','black-hole-loop-animation
 /* ---- domain lock + proxy blocker ---- */
 const ALLOWED_HOSTS=(process.env.ALLOWED_HOSTS||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean),PROXY_BLOCK=process.env.PROXY_BLOCK!=='0';
 const hostOf=h=>String(h||'').toLowerCase().replace(/^https?:\/\//,'').split('/')[0].replace(/:\d+$/,'');
-const hostOk=(req)=>{if(!ALLOWED_HOSTS.length)return true;if(!ALLOWED_HOSTS.includes(hostOf(req.headers.host)))return false;const o=req.headers.origin;return !o||ALLOWED_HOSTS.includes(hostOf(o))};
+const hostOk=(req,ws)=>{if(!ALLOWED_HOSTS.length)return true;if(!ALLOWED_HOSTS.includes(hostOf(req.headers.host)))return false;const o=req.headers.origin;return o?ALLOWED_HOSTS.includes(hostOf(o)):!ws};
 const ipRisk=new Map();
 const privIP=ip=>!ip||/^(::1|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|fc|fd|fe80)/i.test(ip)||ip==='::ffff:127.0.0.1';
 async function isProxy(ip){ip=String(ip||'').replace(/^::ffff:/,'').trim();if(!PROXY_BLOCK||privIP(ip))return false;const h=ipRisk.get(ip);if(h&&Date.now()-h.at<6*36e5)return h.v;
  try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),3500);const r=await fetch('http://ip-api.com/json/'+encodeURIComponent(ip)+'?fields=status,proxy,hosting',{signal:ctl.signal});clearTimeout(tm);const j=await r.json();if(j.status!=='success')return false;const v=!!(j.proxy||j.hosting);ipRisk.set(ip,{v,at:Date.now()});if(ipRisk.size>5000)ipRisk.delete(ipRisk.keys().next().value);return v}catch(e){return false}}
 const ownerIp=ip=>Object.values(db.users).some(u=>u.owner&&(u.ips||[]).includes(ip));
-const srv=http.createServer((q,r)=>{if(!hostOk(q)){r.writeHead(403,{'Content-Type':'text/plain'});return r.end('Use the official website link to play.')}let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
+const srv=http.createServer((q,r)=>{if(!hostOk(q)){r.writeHead(403,{'Content-Type':'text/plain'});return r.end('Use the official website link to play.')}
+ r.setHeader('X-Frame-Options','DENY');r.setHeader('Content-Security-Policy',"frame-ancestors 'none'");
+ {const pth=q.url.split('?')[0];if((pth==='/'||/\.html?$/i.test(pth))&&!q._pc){q._pc=1;const ip=(q.headers['x-forwarded-for']||'').split(',')[0].trim()||q.socket.remoteAddress;return isProxy(ip).then(v=>{if(v&&!ownerIp(ip)&&!ownerIp(String(ip).replace(/^::ffff:/,''))){r.writeHead(403,{'Content-Type':'text/html'});return r.end('<h1 style="font-family:sans-serif;padding:40px">Proxies and VPNs are not allowed. Turn yours off and use the official website link.</h1>')}srv.emit('request',q,r)})}}
+ let u='/';try{u=decodeURIComponent(q.url.split('?')[0])}catch{}
  const rel=u=='/'?'index.html':path.normalize(u).replace(/^(\.\.[\/\\])+/,'');
  const nf=()=>{r.writeHead(404);r.end('Not found')};
  const tryRead=(f,next)=>fs.readFile(f,(e,d)=>{if(e)return next();r.writeHead(200,{'Content-Type':types[path.extname(f)]||'text/plain'});r.end(d)});
  tryRead(path.join(__dirname,'public',rel),()=>{const b=path.basename(rel);if(ASSETS.includes(b))tryRead(path.join(__dirname,b),nf);else nf()})});
-new WebSocketServer({server:srv,verifyClient:(i,cb)=>hostOk(i.req)?cb(true):cb(false,403,'Forbidden')}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
+new WebSocketServer({server:srv,verifyClient:(i,cb)=>hostOk(i.req,true)?cb(true):cb(false,403,'Forbidden')}).on('connection',(ws,req)=>{const ip=req.headers['x-forwarded-for']?.split(',')[0]||req.socket.remoteAddress;
  const c={ws,ip,u:null};if(bans[ip]>Date.now()){send(c,{t:'banned'});return ws.close()}
  isProxy(ip).then(v=>{if(v&&!ownerIp(ip)&&!ownerIp(String(ip).replace(/^::ffff:/,''))){c.px=true;send(c,{t:'banned',proxy:true});setTimeout(()=>ws.close(),300)}});
  ws.on('message',d=>{{const n=Date.now();if(n-(c.fw||0)>1000){c.fw=n;c.fc=0}if(++c.fc>40){if(c.fc>200){send(c,{t:'banned'});return ws.close()}return}}if(d.length>20000)return;let m;try{m=JSON.parse(d)}catch{return}if(c.px)return;if(m.t!=='guest'&&m.t!=='signup'&&m.t!=='login'&&m.t!=='resume'&&!c.u)return;if(typeof m.dev==='string'&&DEVRE.test(m.dev))c.dev=m.dev;if((m.t==='guest'||m.t==='signup'||m.t==='login'||m.t==='resume')&&devGate(c,m.name||db.tokens[m.tk]))return;handlers[m.t]?.(c,m)});
