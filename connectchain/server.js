@@ -16,7 +16,9 @@ const SHOP={'1.5':500,'2':1000};
 const canPay=(u,p)=>u.bal>=p&&u.xp>=p;
 function spend(u,p){u.xp-=p;u.bal-=p;gain(u,-p);{const k=COLORS.find(x=>x[0]==u.color);if(k&&!u.owner&&u.xp<k[1])u.color='white'}}
 const THX_ID='l_harvestfeast',THX_PRICE=8000,RB_PRICE=4000,THX_DAYS=7;
-const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train','tree'];
+const WORDS=['cat','school','pizza','fire','water','money','space','music','computer','forest','hospital','dragon','phone','ocean','mountain','movie','sports','history','chocolate','train','tree','build','photo','animal','garden','bridge','castle','island','robot','river','library','bicycle','weather','kitchen','planet','guitar','pirate','desert','market','rocket','winter','summer','farm','ocean','coffee','airport','jungle','science'];
+let wBag=[],wLast='';
+function nextWord(){if(!wBag.length){wBag=[...new Set(WORDS)];for(let i=wBag.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[wBag[i],wBag[j]]=[wBag[j],wBag[i]]}if(wBag.length>1&&wBag[wBag.length-1]===wLast){const j=Math.random()*(wBag.length-1)|0;[wBag[wBag.length-1],wBag[j]]=[wBag[j],wBag[wBag.length-1]]}}wLast=wBag.pop();return wLast}
 const online=new Map(),bans={};let clients=new Set();
 const send=(c,o)=>c.ws.readyState===1&&c.ws.send(JSON.stringify(o));
 const pub=u=>{const t=u.owner?null:db.tags[u.name.toLowerCase()];return{name:u.name,dn:u.display||u.name,xp:u.xp,color:u.color,tag:t?t.text:u.tag,clan:u.clan&&db.clans&&db.clans[u.clan]?db.clans[u.clan].name:'',tc1:t&&t.c1,tc2:t&&t.c2,owner:!!u.owner,mod:!!u.mod,alpha:!!u.alpha,rv:!!u.reqview,re:!!u.reqedit,lev:u.lev?u.lev.limit:0,codes:!!u.codes,cl:u.codes?(u.codeLimit||0):0,qm:!!u.qmod}};
@@ -44,7 +46,7 @@ async function rel(a,b){if(bad1(b)||bad1(a))return false;if(KEY){const k=a+'|'+b
 function start(a,b){const bt={p:[a,b],lives:[3,3],chain:[],turn:0,live:false,t0:Date.now(),hist:[],spec:new Set()};[a,b].forEach(x=>{if(x.watch){x.watch.spec.delete(x);x.watch=null}});a.bt=b.bt=bt;
  bt.p.forEach((c,i)=>send(c,{t:'countdown',opp:pub(bt.p[1-i].u)}));lobby();
  setTimeout(()=>{if(a.bt===bt){bt.live=true;reset(bt,Math.round(Math.random()))}},4200)}
-function reset(bt,turn){bt.chain=[WORDS[Math.random()*WORDS.length|0]];bt.turn=turn;bt.hist.push({k:'r',w:bt.chain[0]});push(bt)}
+function reset(bt,turn){bt.chain=[nextWord()];bt.turn=turn;bt.hist.push({k:'r',w:bt.chain[0]});push(bt)}
 const BTIDLE=+process.env.BT_IDLE_MS||60000;
 function idleWatch(bt){clearTimeout(bt.itm);clearTimeout(bt.iwarn);if(!bt.live)return;const cur=bt.p[bt.turn];if(!cur)return;
  bt.iwarn=setTimeout(()=>{if(cur.bt===bt&&bt.p[bt.turn]===cur)flash(cur,'⏳ Make a move or you will be kicked for inactivity!','warn')},Math.round(BTIDLE*.6));
@@ -106,7 +108,7 @@ function pview(own){const counts=poll.opts.map(()=>0);Object.values(poll.votes).
 function sendPoll(c){if(!poll||!c.u)return;send(c,{t:'poll',poll:pview(!!c.u.owner),mine:poll.votes[pkey(c)]})}
 function bcPoll(){for(const x of online.values())sendPoll(x)}
 function endPoll(){if(!poll||poll.done)return;poll.done=true;clearTimeout(pollT);bcPoll()}
-const ENDCAP=500,ENDWORD=5,ENDBONUS=5,startWord=()=>WORDS[Math.random()*WORDS.length|0];
+const ENDCAP=500,ENDWORD=5,ENDBONUS=5,startWord=()=>nextWord();
 const esend=(c,msg)=>{const e=c.end;send(c,{t:'end',chain:e.chain,words:e.words,streak:e.streak,turn:e.turn,msg})};
 const addEnd=(e,n)=>{e.xp=Math.min(ENDCAP,e.xp+n)};
 function eh(e,ev){e.hist=e.hist||[];if(!e.hist.length)e.hist.push({k:'r',w:e.chain[0]});if(e.hist.length<400)e.hist.push(ev)}
@@ -122,6 +124,7 @@ async function botMove(c){const e=c.end;if(!e)return;const last=e.chain.at(-1);l
  for(const w of strong){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
  if(!pick&&KEY)for(const w of pool.filter(x=>!strong.includes(x)).slice(0,3)){if(c.end!==e)return;if(await rel(last,w)){pick=w;break}}
  if(c.end!==e)return;
+ if(!pick&&e.words<=1){const fb=(await dmn('ml='+last,25)).filter(okw);pick=fb[Math.random()*fb.length|0]||pool[Math.random()*pool.length|0]||null;if(!pick){const gen=['world','house','people','water','life','time','light','story','place','nature','power','game','color','sound','energy','journey','dream','family','city','idea'].filter(w=>!e.chain.includes(w)&&!w.startsWith(last)&&!last.startsWith(w));pick=gen[Math.random()*gen.length|0]}if(c.end!==e)return}
  if(!pick){qProg(c,'stump');addEnd(e,ENDBONUS);eh(e,{k:'s'});e.chain=[startWord()];e.hist.push({k:'r',w:e.chain[0]});e.streak=0;e.turn='you';return esend(c,'🤖 The bot is stumped and could not find a word! +'+ENDBONUS+' bonus XP. New word!')}
  eh(e,{k:'w',w:pick,by:'bot'});e.chain.push(pick);e.turn='you';esend(c,'🤖 The bot said "'+pick+'"')}
 const fuser=n=>db.users[acctName(n)||''];
